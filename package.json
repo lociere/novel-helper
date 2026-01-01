@@ -1,0 +1,93 @@
+{
+  "name": "novel-helper",
+  "displayName": "Novel Helper",
+  "description": "VSCode辅助写小说的插件，支持目录管理、高亮、统计、排版等功能",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:.novel-helper.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "novel-helper.initWorkspace",
+        "title": "Novel Helper: 初始化小说工作区",
+        "category": "Novel Helper"
+      },
+      {
+        "command": "novel-helper.createItem",
+        "title": "Novel Helper: 创建小说项",
+        "category": "Novel Helper"
+      },
+      {
+        "command": "novel-helper.formatDocument",
+        "title": "Novel Helper: 格式化文档",
+        "category": "Novel Helper"
+      },
+      {
+        "command": "novel-helper.openConfigPanel",
+        "title": "Novel Helper: 打开配置面板",
+        "category": "Novel Helper"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "novelTreeView",
+          "name": "小说创作面板",
+          "icon": "media/icons/novel-icon.svg",
+          "contextualTitle": "小说项目"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Novel Helper",
+      "properties": {
+        "novel-helper.paragraphIndent": {
+          "type": "number",
+          "default": 2,
+          "description": "段首缩进空格数"
+        },
+        "novel-helper.lineSpacing": {
+          "type": "number",
+          "default": 1,
+          "description": "行间空行数"
+        },
+        "novel-helper.highlightColor": {
+          "type": "string",
+          "default": "#FFD700",
+          "description": "高亮文本背景色"
+        },
+        "novel-helper.highlightTextColor": {
+          "type": "string",
+          "default": "#000000",
+          "description": "高亮文本颜色"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "20.2.5",
+    "typescript": "^5.1.3",
+    "@vscode/test-electron": "^2.3.2"
+  },
+  "icon": "media/icons/novel-icon.png",
+  "publisher": "your-name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/novel-helper.git"
+  }
+}

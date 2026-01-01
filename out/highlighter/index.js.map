@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../src/highlighter/index.ts"],"names":[],"mappings":";;;AACA,+CAA4C;AAE5C;;;GAGG;AACI,MAAM,mBAAmB,GAAG,CAAC,OAAgC,EAAQ,EAAE;IAC5E,MAAM,WAAW,GAAG,IAAI,yBAAW,CAAC,OAAO,CAAC,CAAC;IAC7C,OAAO,CAAC,aAAa,CAAC,IAAI,CAAC,WAAW,CAAC,CAAC;AAC1C,CAAC,CAAC;AAHW,QAAA,mBAAmB,uBAG9B"}
