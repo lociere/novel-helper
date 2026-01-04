@@ -112,6 +112,11 @@ export class Highlighter {
     this.highlightItems = config.highlightItems || {};
   }
 
+  /** 转义正则特殊字符 */
+  private escapeRegExp(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   /** 更新高亮 */
   private updateHighlights(): void {
     const editor = vscode.window.activeTextEditor;
@@ -124,7 +129,8 @@ export class Highlighter {
 
     // 匹配所有高亮项
     Object.keys(this.highlightItems).forEach(item => {
-      const regex = new RegExp(item, 'g');
+      const escapedText = this.escapeRegExp(item); // 先转义
+      const regex = new RegExp(escapedText, 'g');
       let match;
       while ((match = regex.exec(text)) !== null) {
         const start = editor.document.positionAt(match.index);
