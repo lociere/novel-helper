@@ -6,13 +6,26 @@ import dayjs from 'dayjs';
  * @param text 文本内容
  * @returns 字数
  */
+
 export const countWords = (text: string): number => {
-  if (!text) {
+  if (!text || typeof text !== 'string') {
     return 0;
   }
-  // 移除空格和换行
-  const cleanText = text.replace(/\s/g, '');
-  return cleanText.length;
+  // 更精确的字数统计：中文字符算1个，英文单词按空格分隔算1个
+  let count = 0;
+  // 匹配中文字符
+  const chineseChars = text.match(/[\u4e00-\u9fa5]/g);
+  if (chineseChars) count += chineseChars.length;
+  
+  // 匹配英文单词（至少包含一个字母，后跟可选的字母、数字或下划线）
+  const englishWords = text.match(/[a-zA-Z]+[a-zA-Z0-9_]*/g);
+  if (englishWords) count += englishWords.length;
+  
+  // 匹配数字
+  const numbers = text.match(/\b\d+\b/g);
+  if (numbers) count += numbers.length;
+  
+  return count;
 };
 
 /**
