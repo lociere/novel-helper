@@ -22,8 +22,13 @@ export const createFile = (filePath: string, content = ''): void => {
     vscode.window.showWarningMessage(`文件已存在：${filePath}`);
     return;
   }
-  fs.writeFileSync(filePath, content, 'utf-8');
-  vscode.window.showInformationMessage(`创建文件成功：${path.basename(filePath)}`);
+  try {
+    createDir(path.dirname(filePath));
+    fs.writeFileSync(filePath, content, 'utf-8');
+    vscode.window.showInformationMessage(`创建文件成功：${path.basename(filePath)}`);
+  } catch (error) { 
+    vscode.window.showErrorMessage(`创建文件失败：${error}`);
+  }
 };
 
 /**
