@@ -13,6 +13,18 @@ export type CreateItemType =
   | '分卷' 
   | '章节';
 
+  // 新增：路径与操作映射配置
+const itemConfigMap: Record<CreateItemType, { subPath: string; isDir: boolean; template?: string }> = {
+  '总大纲': { subPath: '大纲', isDir: false, template: `# {{name}}\n\n` },
+  '分大纲': { subPath: '大纲', isDir: false, template: `## {{name}}\n\n` },
+  '角色设定': { subPath: '设定/角色设定', isDir: false, template: `# {{name}} 设定\n\n` },
+  '事物设定': { subPath: '设定/事物设定', isDir: false, template: `# {{name}} 设定\n\n` },
+  '图片素材': { subPath: '素材/图片素材', isDir: true },
+  '文字素材': { subPath: '素材/文字素材', isDir: false, template: `# {{name}} 素材\n\n` },
+  '分卷': { subPath: '正文', isDir: true },
+  '章节': { subPath: '', isDir: false, template: '' }, // 章节路径由parentPath决定
+};
+
 /**
  * 创建小说项
  * @param type 项类型
@@ -42,42 +54,26 @@ export const createItem = async (type: CreateItemType, parentPath?: string): Pro
   }
 
   // 确定路径和文件类型
-  let targetPath: string;
   const basePath = parentPath || root;
+  const config = itemConfigMap[type];
+  let targetPath: string;
 
-  switch (type) {
-    case '总大纲':
-      targetPath = path.join(basePath, '大纲', `${name}.md`);
-      createFile(targetPath, `# ${name}\n\n`);
-      break;
-    case '分大纲':
-      targetPath = path.join(basePath, '大纲', `${name}.md`);
-      createFile(targetPath, `## ${name}\n\n`);
-      break;
-    case '角色设定':
-      targetPath = path.join(basePath, '设定/角色设定', `${name}.md`);
-      createFile(targetPath, `# ${name} 设定\n\n`);
-      break;
-    case '事物设定':
-      targetPath = path.join(basePath, '设定/事物设定', `${name}.md`);
-      createFile(targetPath, `# ${name} 设定\n\n`);
-      break;
-    case '图片素材':
-      targetPath = path.join(basePath, '素材/图片素材', name);
-      createDir(targetPath);
-      break;
-    case '文字素材':
-      targetPath = path.join(basePath, '素材/文字素材', `${name}.md`);
-      createFile(targetPath, `# ${name} 素材\n\n`);
-      break;
-    case '分卷':
-      targetPath = path.join(basePath, '正文', name);
-      createDir(targetPath);
-      break;
-    case '章节':
-      targetPath = path.join(basePath, `${name}.txt`);
-      createFile(targetPath, '');
-      break;
+
+  if (type === '章节') {
+    targetPath = path.join(basePath, `${name}.txt`);
+  } else {
+    const fullSubPath = path.join(basePath, config.subPath);
+    targetPath = config.isDir 
+      ? path.join(fullSubPath, name) 
+      : path.join(fullSubPath, `${name}.md`);
+  }
+
+  // 执行创建操作
+  if (config.isDir) {
+    createDir(targetPath);
+  } else {
+    const content = config.template?.replace('{{name}}', name) || '';
+    createFile(targetPath, content);
   }
 
   // 刷新树视图
