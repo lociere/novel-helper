@@ -1,89 +1,65 @@
 import * as vscode from 'vscode';
-import dayjs from 'dayjs';
+import * as path from 'path';
+import * as fs from 'fs';
 
 /**
- * 计算文本字数（含中文、英文、数字，不含空格和换行）
- * @param text 文本内容
- * @returns 字数
+ * 统计文本字数（优化版：适配中文小说计数规则）
+ * 规则：中文字符算1个，英文单词算1个，数字算1个
+ * @param text 待统计的文本
+ * @returns 精准计数字数
  */
-
 export const countWords = (text: string): number => {
+  // 增加类型校验：非字符串直接返回0
   if (!text || typeof text !== 'string') {
     return 0;
   }
-  // 更精确的字数统计：中文字符算1个，英文单词按空格分隔算1个
-  let count = 0;
-  // 匹配中文字符
-  const chineseChars = text.match(/[\u4e00-\u9fa5]/g);
-  if (chineseChars) count += chineseChars.length;
-  
-  // 匹配英文单词（至少包含一个字母，后跟可选的字母、数字或下划线）
-  const englishWords = text.match(/[a-zA-Z]+[a-zA-Z0-9_]*/g);
-  if (englishWords) count += englishWords.length;
-  
-  // 匹配数字
-  const numbers = text.match(/\b\d+\b/g);
-  if (numbers) count += numbers.length;
-  
-  return count;
-};
 
-/**
- * 格式化时间（秒转时分秒）
- * @param seconds 秒数
- * @returns 格式化后的时间字符串
- */
-export const formatTime = (seconds: number): string => {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  return `${h > 0 ? `${h}小时` : ''}${m > 0 ? `${m}分钟` : ''}${s}秒`;
-};
+  let totalCount = 0;
 
-/**
- * 计算码字速度（字/分钟）
- * @param wordCount 字数变化
- * @param duration 时长（秒）
- * @returns 速度
- */
-export const calculateWritingSpeed = (wordCount: number, duration: number): number => {
-  if (duration === 0 || wordCount === 0) {
-    return 0;
+  // 1. 匹配中文字符（[\u4e00-\u9fa5] 覆盖常用中文）
+  const chineseCharMatches = text.match(/[\u4e00-\u9fa5]/g);
+  if (chineseCharMatches) {
+    totalCount += chineseCharMatches.length;
   }
-  const minutes = duration / 60;
-  return Math.round(wordCount / minutes);
-};
 
-/**
- * 获取选中的文本
- * @returns 选中的文本
- */
-export const getSelectedText = (): string => {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor) {
-    return '';
+  // 2. 匹配英文单词（至少1个字母，后跟可选字母/数字/下划线）
+  const englishWordMatches = text.match(/[a-zA-Z]+[a-zA-Z0-9_]*/g);
+  if (englishWordMatches) {
+    totalCount += englishWordMatches.length;
   }
-  const selection = editor.selection;
-  if (selection.isEmpty) {
-    return '';
+
+  // 3. 匹配独立数字（按完整数字串算1个，如"123"算1个）
+  const numberMatches = text.match(/\b\d+\b/g);
+  if (numberMatches) {
+    totalCount += numberMatches.length;
   }
-  return editor.document.getText(selection);
+
+  return totalCount;
 };
 
 /**
- * 格式化数字（补零）
- * @param num 数字
- * @param length 长度
- * @returns 格式化后的字符串
+ * 获取工作区根路径
+ * @returns 根路径字符串 | undefined
  */
-export const formatNumber = (num: number, length = 2): string => {
-  return num.toString().padStart(length, '0');
+export const getWorkspaceRoot = (): string | undefined => {
+  return vscode.workspace.rootPath;
 };
 
 /**
- * 获取当前时间戳（秒）
- * @returns 时间戳
+ * 读取目录下的文件列表（优化：增加错误捕获）
+ * @param dirPath 目录路径
+ * @returns 文件名称数组
  */
-export const getCurrentTimestamp = (): number => {
-  return dayjs().unix();
+export const getDirFiles = (dirPath: string): string[] => {
+  if (!dirPath || !fs.existsSync(dirPath)) {
+    return [];
+  }
+  
+  try {
+    return fs.readdirSync(dirPath);
+  } catch (error) {
+    console.error('[Novel Helper] 读取目录失败:', error);
+    vscode.window.showErrorMessage(`读取目录失败：${(error as Error).message}`);
+    return [];
+  }
 };
