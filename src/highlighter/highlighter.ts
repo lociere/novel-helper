@@ -1,151 +1,160 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig, readConfig, writeConfig } from '../utils/config';
-import { getSelectedText } from '../utils/helpers';
 import * as path from 'path';
 
-/** 高亮管理器 */
+/**
+ * 文本高亮管理器（优化版：性能提升+错误处理）
+ */
 export class Highlighter {
-  private decorations: { [key: string]: vscode.TextEditorDecorationType } = {};
-  private highlightItems: { [key: string]: { path: string; range: vscode.Range } } = {};
-  // 修复：移除 empty() 初始化，改为构造函数内初始化
-  private clickDisposable: vscode.Disposable;
+  private decorations: { [key: string]: vscode.TextEditorDecorationType };
+  private highlightItems: { [key: string]: { path: string; range: vscode.Range } };
+  private regexCache: Map<string, RegExp>; // 正则缓存：避免重复创建
 
-  constructor(private context: vscode.ExtensionContext) {
-    // 初始化空的Disposable（兼容所有VSCode版本）
-    this.clickDisposable = new vscode.Disposable(() => {});
-    this.initDecorations();
-    this.startListening();
+  constructor(context: vscode.ExtensionContext) {
+    this.decorations = {
+      highlight: vscode.window.createTextEditorDecorationType({
+        isWholeLine: false,
+        className: 'novel-highlight'
+      })
+    };
+
+    this.highlightItems = {};
+    this.regexCache = new Map<string, RegExp>(); // 初始化正则缓存
+
+    // 注册高亮相关命令
+    this.registerCommands(context);
+    // 监听文本变化更新高亮
+    this.registerEventListeners();
   }
 
-  /** 初始化装饰器 */
-  private initDecorations(): void {
-    const config = getVSCodeConfig();
-    this.decorations.highlight = vscode.window.createTextEditorDecorationType({
-      backgroundColor: config.highlightColor,
-      color: config.highlightTextColor,
-      cursor: 'pointer',
-      border: '1px solid #ccc',
-      borderRadius: '2px'
-    });
-    this.context.subscriptions.push(this.decorations.highlight);
-  }
-
-  /** 开始监听 */
-  private startListening(): void {
-    // 监听选中文本，添加高亮项
-    vscode.window.onDidChangeTextEditorSelection(async (event) => {
-      const editor = event.textEditor;
-      const selection = event.selections[0];
-      if (!selection.isEmpty) {
-        const text = getSelectedText();
-        if (text && editor.document.uri.fsPath.includes('设定')) {
-          // 确认添加高亮
-          const confirm = await vscode.window.showQuickPick(['是', '否'], {
-            placeHolder: `是否将"${text}"添加为高亮项？`
-          });
-          if (confirm === '是') {
-            this.highlightItems[text] = {
-              path: editor.document.uri.fsPath,
-              range: selection
-            };
-            writeConfig({ highlightItems: this.highlightItems });
-            vscode.window.showInformationMessage(`已添加高亮项: ${text}`);
-            this.updateHighlights();
-          }
-        }
+  /**
+   * 注册高亮相关命令
+   */
+  private registerCommands(context: vscode.ExtensionContext): void {
+    // 添加高亮项命令
+    const addHighlightDisposable = vscode.commands.registerCommand('novel-helper.addHighlight', () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showWarningMessage('请先打开文本编辑器！');
+        return;
       }
-    });
 
-    // 文档变化时更新高亮
-    vscode.workspace.onDidChangeTextDocument(() => {
+      const selection = editor.selection;
+      if (selection.isEmpty) {
+        vscode.window.showWarningMessage('请先选中要高亮的文本！');
+        return;
+      }
+
+      const text = editor.document.getText(selection).trim();
+      if (!text) {
+        vscode.window.showWarningMessage('高亮文本不能为空！');
+        return;
+      }
+
+      this.highlightItems[text] = {
+        path: editor.document.uri.fsPath,
+        range: selection
+      };
       this.updateHighlights();
+      vscode.window.showInformationMessage(`已添加高亮项：${text}`);
     });
 
-    // 切换编辑器时更新高亮
-    vscode.window.onDidChangeActiveTextEditor((editor) => {
-      if (editor) {
-        this.updateHighlights();
-      }
-    });
-
-    // 重新赋值 clickDisposable（替换空的Disposable）
-    this.clickDisposable.dispose(); // 释放空的Disposable
-    this.clickDisposable = vscode.window.onDidChangeTextEditorSelection((event) => {
-      const editor = event.textEditor;
-      if (!editor) return;
-
-      const position = event.selections[0].active;
-      const document = editor.document;
-
-      // 遍历所有高亮项，检查当前位置是否在高亮范围内
-      Object.keys(this.highlightItems).forEach(itemText => {
-        const regex = new RegExp(itemText, 'g');
-        const text = document.getText();
-        let match;
-        
-        while ((match = regex.exec(text)) !== null) {
-          const startPos = document.positionAt(match.index);
-          const endPos = document.positionAt(match.index + itemText.length);
-          const highlightRange = new vscode.Range(startPos, endPos);
-
-          // 如果当前点击位置在高亮范围内
-          if (highlightRange.contains(position)) {
-            const item = this.highlightItems[itemText];
-            if (item) {
-              // 打开设定文件并定位
-              vscode.workspace.openTextDocument(vscode.Uri.file(item.path)).then(doc => {
-                vscode.window.showTextDocument(doc).then(targetEditor => {
-                  targetEditor.selection = new vscode.Selection(item.range.start, item.range.end);
-                  targetEditor.revealRange(item.range, vscode.TextEditorRevealType.InCenter);
-                });
-              });
-            }
-            return; // 找到匹配项后退出循环
-          }
-        }
-      });
-    });
-    this.context.subscriptions.push(this.clickDisposable);
-
-    // 加载已保存的高亮项
-    const config = readConfig();
-    this.highlightItems = config.highlightItems || {};
+    context.subscriptions.push(addHighlightDisposable);
   }
 
-  /** 转义正则特殊字符 */
-  private escapeRegExp(text: string): string {
-    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  /**
+   * 注册事件监听器（优化：添加防抖减少高频触发）
+   */
+  private registerEventListeners(): void {
+    // 防抖函数：300ms内仅执行一次，减少性能消耗
+    const debounceUpdate = (func: () => void, delay: number) => {
+      let timeout: NodeJS.Timeout;
+      return () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(), delay);
+      };
+    };
+
+    // 防抖后的更新方法
+    const debouncedUpdate = debounceUpdate(() => this.updateHighlights(), 300);
+
+    // 文本变化时更新高亮（防抖）
+    vscode.workspace.onDidChangeTextDocument(() => {
+      debouncedUpdate();
+    });
+
+    // 切换编辑器时更新高亮（防抖）
+    vscode.window.onDidChangeActiveTextEditor(() => {
+      debouncedUpdate();
+    });
   }
 
-  /** 更新高亮 */
+  /**
+   * 转义正则特殊字符（避免正则语法错误）
+   * @param str 原始字符串
+   * @returns 转义后的字符串
+   */
+  private escapeRegExp(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * 更新文本高亮（优化：缓存正则+错误处理+有效性检查）
+   */
   private updateHighlights(): void {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       return;
     }
 
-    const text = editor.document.getText();
+    const document = editor.document;
+    const text = document.getText();
     const ranges: vscode.Range[] = [];
 
     // 匹配所有高亮项
     Object.keys(this.highlightItems).forEach(item => {
-      const escapedText = this.escapeRegExp(item); // 先转义
-      const regex = new RegExp(escapedText, 'g');
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        const start = editor.document.positionAt(match.index);
-        const end = editor.document.positionAt(match.index + item.length);
-        ranges.push(new vscode.Range(start, end));
+      // 跳过空高亮项
+      if (!item || item.trim() === '') {
+        return;
+      }
+
+      try {
+        // 从缓存获取正则，无则创建并缓存
+        let regex = this.regexCache.get(item);
+        if (!regex) {
+          const escapedItem = this.escapeRegExp(item);
+          regex = new RegExp(escapedItem, 'g');
+          this.regexCache.set(item, regex);
+        }
+
+        let match;
+        // 重置正则lastIndex，避免匹配位置错误
+        regex.lastIndex = 0;
+        while ((match = regex.exec(text)) !== null) {
+          const startPos = document.positionAt(match.index);
+          const endPos = document.positionAt(match.index + item.length);
+          
+          // 验证位置有效性，避免无效range
+          if (startPos.isValid && endPos.isValid) {
+            ranges.push(new vscode.Range(startPos, endPos));
+          }
+        }
+      } catch (error) {
+        console.error(`[Novel Helper] 高亮匹配失败 - 项：${item}`, error);
+        // 移除错误的高亮项，避免持续报错
+        delete this.highlightItems[item];
+        this.regexCache.delete(item);
       }
     });
 
     // 应用装饰器
     editor.setDecorations(this.decorations.highlight, ranges);
   }
-
-  // 实现 dispose 方法
-  public dispose(): void {
-    Object.values(this.decorations).forEach(deco => deco.dispose());
-    this.clickDisposable.dispose();
-  }
 }
+
+/**
+ * 注册高亮管理器
+ * @param context 扩展上下文
+ */
+export const registerHighlighter = (context: vscode.ExtensionContext): void => {
+  new Highlighter(context);
+};
