@@ -1,7 +1,19 @@
+/* 小说高亮样式 - 优化版，增加主题变量和交互效果 */
 .novel-highlight {
-  background-color: #FFD700;
-  color: #000000;
+  /* CSS变量：便于后续主题定制和配置面板修改 */
+  --highlight-bg-color: #FFD700;
+  --highlight-text-color: #000000;
+  
+  background-color: var(--highlight-bg-color);
+  color: var(--highlight-text-color);
   padding: 0 2px;
   border-radius: 2px;
   cursor: pointer;
+  /* 过渡动画：提升悬停体验 */
+  transition: background-color 0.2s ease;
+}
+
+/* 悬停高亮效果：增强交互反馈 */
+.novel-highlight:hover {
+  filter: brightness(1.1);
 }
