@@ -43,6 +43,11 @@
         "category": "Novel Helper"
       },
       {
+        "command": "novel-helper.addHighlight",
+        "title": "Novel Helper: 添加高亮",
+        "category": "Novel Helper"
+      },
+      {
         "command": "novel-helper.addHighlightFromSelection",
         "title": "Novel Helper: 在设定中添加高亮",
         "category": "Novel Helper"
@@ -60,6 +65,25 @@
           "name": "小说创作面板",
           "icon": "media/icons/novel-icon.svg",
           "contextualTitle": "小说项目"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "novel-helper.addHighlightFromSelection",
+          "when": "editorHasSelection",
+          "group": "1_novel_helper"
+        },
+        {
+          "command": "novel-helper.addHighlight",
+          "when": "editorHasSelection",
+          "group": "1_novel_helper"
+        },
+        {
+          "command": "novel-helper.jumpToHighlightSource",
+          "when": "editorTextFocus",
+          "group": "1_novel_helper"
         }
       ]
     },

@@ -223,22 +223,54 @@ export class Highlighter {
       }
 
       try {
-        // 从缓存获取正则，无则创建并缓存
-        let regex = this.regexCache.get(item);
+        const hi = this.highlightItems[item];
+
+        // 如果当前打开的文档就是高亮项的源文件，优先使用持久化的范围直接高亮该范围（避免因为格式差异导致匹配失败）
+        if (hi && hi.path && document.uri.fsPath === hi.path) {
+          try {
+            if (hi.range instanceof vscode.Range) {
+              ranges.push(hi.range);
+            } else {
+              // 如果是序列化对象则尝试转换
+              const r = hi.range as any;
+              const sr = new vscode.Range(new vscode.Position(r.start.line, r.start.character), new vscode.Position(r.end.line, r.end.character));
+              ranges.push(sr);
+            }
+          } catch (e) {
+            // 忽略单项转换错误
+          }
+        }
+
+        // 用于全局搜索的文本优先使用源文件范围内的实际文本（如果可用），否则使用 key
+        let searchText = item;
+        try {
+          if (hi && hi.path && document.uri.fsPath === hi.path && hi.range instanceof vscode.Range) {
+            const actual = document.getText(hi.range).trim();
+            if (actual) searchText = actual;
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        // 从缓存获取正则，无则创建并缓存（使用 searchText 作为缓存键）
+        let regex = this.regexCache.get(searchText);
         if (!regex) {
-          const escapedItem = this.escapeRegExp(item);
+          const escapedItem = this.escapeRegExp(searchText);
+          // 使用全局匹配；大小写敏感保持现有行为
           regex = new RegExp(escapedItem, 'g');
-          this.regexCache.set(item, regex);
+          this.regexCache.set(searchText, regex);
         }
 
         let match;
-        // 重置正则lastIndex，避免匹配位置错误
         regex.lastIndex = 0;
         while ((match = regex.exec(text)) !== null) {
           const startPos = document.positionAt(match.index);
-          const endPos = document.positionAt(match.index + item.length);
+          const endPos = document.positionAt(match.index + match[0].length);
 
-          ranges.push(new vscode.Range(startPos, endPos));
+          const newRange = new vscode.Range(startPos, endPos);
+          // 避免重复添加与已存在的持久化范围重复
+          const dup = ranges.some(r => r.start.isEqual(newRange.start) && r.end.isEqual(newRange.end));
+          if (!dup) ranges.push(newRange);
         }
       } catch (error) {
         console.error(`[Novel Helper] 高亮匹配失败 - 项：${item}`, error);
