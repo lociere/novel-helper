@@ -39,6 +39,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const treeItem_1 = require("./treeItem");
 const helpers_1 = require("../utils/helpers");
+const fileSystem_1 = require("../utils/fileSystem");
 const config_1 = require("../utils/config");
 /** 小说树数据提供器 */
 class NovelTreeDataProvider {
@@ -117,7 +118,7 @@ class NovelTreeDataProvider {
         const configFullPath = (0, config_1.getConfigFilePath)();
         let allFiles = [];
         try {
-            allFiles = (0, helpers_1.getDirFiles)(dirPath);
+            allFiles = (0, fileSystem_1.getDirFiles)(dirPath);
         }
         catch (e) {
             return [];
@@ -154,7 +155,22 @@ class NovelTreeDataProvider {
         });
         // 添加文件节点
         files.forEach(f => {
-            children.push(new treeItem_1.NovelTreeItem(f, 'file', vscode.TreeItemCollapsibleState.None, vscode.Uri.file(path.join(dirPath, f))));
+            const filePath = path.join(dirPath, f);
+            const item = new treeItem_1.NovelTreeItem(f, 'file', vscode.TreeItemCollapsibleState.None, vscode.Uri.file(filePath));
+            // 计算并显示文本文件的字数
+            if (f.endsWith('.txt') || f.endsWith('.md')) {
+                try {
+                    // 优先读取已打开的文档内容（包含未保存变更），否则读取磁盘文件
+                    const openDoc = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === filePath);
+                    const content = openDoc ? openDoc.getText() : fs.readFileSync(filePath, 'utf-8');
+                    const count = (0, helpers_1.countWords)(content);
+                    item.description = `${count}字`;
+                }
+                catch (e) {
+                    // ignore
+                }
+            }
+            children.push(item);
         });
         return children;
     }

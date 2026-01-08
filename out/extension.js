@@ -50,62 +50,31 @@ const config_1 = require("./utils/config");
  */
 function activate(context) {
     console.log('novel-helper 已激活！');
-    // 注册所有模块
-    try {
-        (0, commands_1.registerCommands)(context);
-    }
-    catch (e) {
-        console.error('[Novel Helper] registerCommands 失败：', e);
-        vscode.window.showErrorMessage('Novel Helper: 注册命令失败，请查看开发者控制台。');
-    }
-    try {
-        (0, treeView_1.registerTreeView)(context);
-    }
-    catch (e) {
-        console.error('[Novel Helper] registerTreeView 失败：', e);
-        vscode.window.showErrorMessage('Novel Helper: 注册树视图失败，请查看开发者控制台。');
-    }
+    // 注册功能模块的辅助函数
+    const registerModule = (name, registerFn) => {
+        try {
+            registerFn(context);
+        }
+        catch (e) {
+            console.error(`[Novel Helper] register${name} 失败：`, e);
+            vscode.window.showErrorMessage(`Novel Helper: 注册${name}失败，请查看开发者控制台。`);
+        }
+    };
+    // 按顺序注册各模块
+    registerModule('Commands', commands_1.registerCommands);
+    registerModule('TreeView', treeView_1.registerTreeView);
+    registerModule('StatusBar', statusBar_1.registerStatusBar);
+    registerModule('Panel', panel_1.registerPanel);
+    registerModule('Highlighter', highlighter_1.registerHighlighter);
+    registerModule('Stats', stats_1.registerStats);
+    registerModule('Formatter', formatter_1.registerFormatter);
     // 隐藏工作区内的插件配置文件，避免干扰资源管理器视图
     try {
         (0, config_1.hideConfigFileInExplorer)();
     }
     catch (e) {
-        // 忽略
-    }
-    try {
-        (0, statusBar_1.registerStatusBar)(context);
-    }
-    catch (e) {
-        console.error('[Novel Helper] registerStatusBar 失败：', e);
-        vscode.window.showErrorMessage('Novel Helper: 注册状态栏失败，请查看开发者控制台。');
-    }
-    try {
-        (0, panel_1.registerPanel)(context);
-    }
-    catch (e) {
-        console.error('[Novel Helper] registerPanel 失败：', e);
-        vscode.window.showErrorMessage('Novel Helper: 注册面板失败，请查看开发者控制台。');
-    }
-    try {
-        (0, highlighter_1.registerHighlighter)(context);
-    }
-    catch (e) {
-        console.error('[Novel Helper] registerHighlighter 失败：', e);
-        vscode.window.showErrorMessage('Novel Helper: 注册高亮失败，请查看开发者控制台。');
-    }
-    try {
-        (0, stats_1.registerStats)(context);
-    }
-    catch (e) {
-        console.error('[Novel Helper] registerStats 失败：', e);
-        vscode.window.showErrorMessage('Novel Helper: 注册统计器失败，请查看开发者控制台。');
-    }
-    try {
-        (0, formatter_1.registerFormatter)(context);
-    }
-    catch (e) {
-        console.error('[Novel Helper] registerFormatter 失败：', e);
-        vscode.window.showErrorMessage('Novel Helper: 注册格式化器失败，请查看开发者控制台。');
+        // 忽略非关键错误
+        console.warn('[Novel Helper] 隐藏配置文件失败:', e);
     }
 }
 /**

@@ -42,6 +42,7 @@ const defaultConfig = {
     workspacePath: '',
     paragraphIndent: 2,
     lineSpacing: 1,
+    fontSize: 14,
     highlightColor: '#FFD700',
     highlightTextColor: '#000000',
     highlightItems: {},
@@ -111,6 +112,7 @@ const getVSCodeConfig = () => {
         ...(0, exports.readConfig)(),
         paragraphIndent: config.get('paragraphIndent', 2),
         lineSpacing: config.get('lineSpacing', 1),
+        fontSize: config.get('fontSize', 14),
         highlightColor: config.get('highlightColor', '#FFD700'),
         highlightTextColor: config.get('highlightTextColor', '#000000')
     };

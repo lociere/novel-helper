@@ -49,35 +49,25 @@ class Formatter {
         const formatterProvider = {
             provideDocumentFormattingEdits: (document) => {
                 const config = (0, config_1.getVSCodeConfig)();
-                const edits = [];
-                const lines = document.getText().split('\n');
-                let lastLineWasEmpty = false;
-                lines.forEach((line, lineNumber) => {
-                    const range = document.lineAt(lineNumber).range;
-                    // 处理段首缩进
-                    let formattedLine = line;
-                    if (line.trim() !== '' && !lastLineWasEmpty) {
-                        // 非空行且上一行不是空行，添加段首缩进
-                        formattedLine = ' '.repeat(config.paragraphIndent) + line;
-                    }
-                    // 处理行间空行
-                    if (line.trim() === '') {
-                        lastLineWasEmpty = true;
-                        // 只保留配置的空行数
-                        if (config.lineSpacing === 0) {
-                            edits.push(vscode.TextEdit.delete(range));
-                            return;
-                        }
-                    }
-                    else {
-                        lastLineWasEmpty = false;
-                    }
-                    // 应用修改
-                    if (formattedLine !== line) {
-                        edits.push(vscode.TextEdit.replace(range, formattedLine));
-                    }
-                });
-                return edits;
+                const text = document.getText();
+                // 1. 提取有效段落（处理掉所有原有空行和首尾空格）
+                const paragraphs = text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
+                if (paragraphs.length === 0) {
+                    // 如果全是空行，清空文档
+                    const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(text.length));
+                    return [vscode.TextEdit.replace(fullRange, '')];
+                }
+                // 2. 确定分隔符
+                // config.lineSpacing 表示段落间的“空行数”
+                // 0 => 换行 (\n)
+                // 1 => 换行+空一行 (\n\n)
+                const separator = '\n'.repeat(Math.max(1, config.lineSpacing + 1));
+                const indentString = ' '.repeat(config.paragraphIndent);
+                // 3. 重新组装文档
+                const newText = paragraphs.map(p => indentString + p).join(separator);
+                // 4. 全量替换（确保彻底符合格式）
+                const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(text.length));
+                return [vscode.TextEdit.replace(fullRange, newText)];
             }
         };
         // 注册格式化程序并返回 disposable

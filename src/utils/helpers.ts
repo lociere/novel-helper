@@ -10,29 +10,31 @@ import { readConfig } from './config';
  * @returns 精准计数字数
  */
 export const countWords = (text: string): number => {
-  // 增加类型校验：非字符串直接返回0
   if (!text || typeof text !== 'string') {
     return 0;
   }
 
   let totalCount = 0;
 
-  // 1. 匹配中文字符（[\u4e00-\u9fa5] 覆盖常用中文）
-  const chineseCharMatches = text.match(/[\u4e00-\u9fa5]/g);
-  if (chineseCharMatches) {
-    totalCount += chineseCharMatches.length;
+  // 1. 匹配中文字符及中文标点 (扩展范围)
+  // \u4e00-\u9fa5: 基本汉字
+  // \u3000-\u303f: CJK 标点
+  // \uff00-\uffef: 全角ASCII、全角标点
+  // \u2000-\u206f: 常用标点 (如及 em dash)
+  const chineseAndPunctuation = text.match(/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef\u2000-\u206f]/g);
+  if (chineseAndPunctuation) {
+    totalCount += chineseAndPunctuation.length;
   }
 
-  // 2. 匹配英文单词（至少1个字母，后跟可选字母/数字/下划线）
-  const englishWordMatches = text.match(/[a-zA-Z]+[a-zA-Z0-9_]*/g);
-  if (englishWordMatches) {
-    totalCount += englishWordMatches.length;
-  }
+  // 2. 移除已被上述正则匹配掉的字符，避免重复计算
+  // 这里采用简化的互斥逻辑：英文单词和数字通过 \w 匹配，但在中文环境下需要小心
+  // 将中文及中文标点替换为空，再统计剩下的单词/数字
+  const remainingText = text.replace(/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef\u2000-\u206f]/g, ' ');
 
-  // 3. 匹配独立数字（按完整数字串算1个，如"123"算1个）
-  const numberMatches = text.match(/\b\d+\b/g);
-  if (numberMatches) {
-    totalCount += numberMatches.length;
+  // 3. 匹配英文单词和数字 (连续的字母数字下划线算作 1 个词)
+  const wordMatches = remainingText.match(/[a-zA-Z0-9_\-]+/g);
+  if (wordMatches) {
+    totalCount += wordMatches.length;
   }
 
   return totalCount;
@@ -93,24 +95,7 @@ export const calculateWritingSpeed = (words: number, ms: number): number => {
   return Math.round(words / minutes);
 };
 
-/**
- * 读取目录下的文件列表（优化：增加错误捕获）
- * @param dirPath 目录路径
- * @returns 文件名称数组
- */
-export const getDirFiles = (dirPath: string): string[] => {
-  if (!dirPath || !fs.existsSync(dirPath)) {
-    return [];
-  }
-  
-  try {
-    return fs.readdirSync(dirPath);
-  } catch (error) {
-    console.error('[Novel Helper] 读取目录失败:', error);
-    vscode.window.showErrorMessage(`读取目录失败：${(error as Error).message}`);
-    return [];
-  }
-};
+
 
 /**
  * 判断当前工作区是否为已初始化的小说工作区（存在关键目录）

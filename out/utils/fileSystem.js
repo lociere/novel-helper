@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.writeFile = exports.readFile = exports.createFile = exports.createDir = void 0;
+exports.getDirFiles = exports.writeFile = exports.readFile = exports.createFile = exports.createDir = void 0;
 const vscode = __importStar(require("vscode"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -146,4 +146,23 @@ const writeFile = (filePath, content) => {
     }
 };
 exports.writeFile = writeFile;
+/**
+ * 读取目录下的文件列表
+ * @param dirPath 目录路径
+ * @returns 文件名称数组
+ */
+const getDirFiles = (dirPath) => {
+    if (!dirPath || !fs.existsSync(dirPath)) {
+        return [];
+    }
+    try {
+        return fs.readdirSync(dirPath);
+    }
+    catch (error) {
+        console.error('[Novel Helper] 读取目录失败:', error);
+        vscode.window.showErrorMessage(`读取目录失败：${error.message}`);
+        return [];
+    }
+};
+exports.getDirFiles = getDirFiles;
 //# sourceMappingURL=fileSystem.js.map

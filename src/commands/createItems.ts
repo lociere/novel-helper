@@ -29,6 +29,23 @@ type CreateItemConfig = {
 };
 
 /**
+ * 解析目标目录路径
+ * @param basePath 用户传入的基础路径
+ * @param configBaseDir 配置中的基础目录
+ * @param workspaceRoot 工作区根目录
+ */
+const resolveTargetDir = (basePath: string | undefined, configBaseDir: string, workspaceRoot: string): string => {
+  if (basePath) {
+    if (path.isAbsolute(basePath)) {
+      return basePath;
+    }
+    return path.join(workspaceRoot, basePath);
+  }
+  return path.join(workspaceRoot, configBaseDir);
+};
+
+
+/**
  * 创建小说相关项目（总大纲、分大纲、角色设定等）
  * @param type 项目类型
  * @param name 项目名称
@@ -54,22 +71,15 @@ export const createItems = (type: CreateItemType, name: string, basePath?: strin
     return;
   }
 
-  let targetPath = '';
-  // 拼接目标目录路径：
-  // - 如果传入的 basePath 是绝对路径且存在，则直接使用
-  // - 如果传入的 basePath 是相对路径，则认为它是相对于工作区根的路径
-  // - 否则回退到按类型配置的默认目录（相对于 workspace 根）
-  let dirPath: string;
-  if (basePath) {
-    // 如果提供的是绝对路径，即便尚不存在也直接使用（后续会创建父目录）
-    if (path.isAbsolute(basePath)) {
-      dirPath = basePath;
-    } else {
-      dirPath = path.join(base, basePath);
-    }
-  } else {
-    dirPath = config.dir ? path.join(base, config.dir) : base;
+  // 1. 确定目标目录
+  // 注意：我们需要确定的工作区根目录来处理相对路径
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
+    // 理论上前面 base 检查已涵盖，但为了 resolveTargetDir 类型安全
+    return;
   }
+  const dirPath = resolveTargetDir(basePath, config.dir, workspaceRoot);
+  let targetPath = '';
   
   // 确保父目录存在
   const dirCreated = createDir(dirPath);

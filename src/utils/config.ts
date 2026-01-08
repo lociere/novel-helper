@@ -2,18 +2,33 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 
+export interface Position {
+  line: number;
+  character: number;
+}
+
+export interface Range {
+  start: Position;
+  end: Position;
+}
+
+export interface HighlightItem {
+  path: string;
+  range: Range;
+}
+
 /** 插件配置类型 */
 export interface NovelHelperConfig {
   workspacePath: string;
   paragraphIndent: number;
   lineSpacing: number;
+  fontSize: number;
   highlightColor: string;
   highlightTextColor: string;
   /**
    * highlightItems 的值采用可序列化的范围表示，便于写入配置文件
-   * range: { start: { line, character }, end: { line, character } }
    */
-  highlightItems: { [key: string]: { path: string; range: { start: { line: number; character: number }; end: { line: number; character: number } } } };
+  highlightItems: { [key: string]: HighlightItem };
   editStartTime: number;
   totalEditTime: number;
   lastWordCount: number;
@@ -24,6 +39,7 @@ const defaultConfig: NovelHelperConfig = {
   workspacePath: '',
   paragraphIndent: 2,
   lineSpacing: 1,
+  fontSize: 14,
   highlightColor: '#FFD700',
   highlightTextColor: '#000000',
   highlightItems: {},
@@ -93,6 +109,7 @@ export const getVSCodeConfig = (): NovelHelperConfig => {
     ...readConfig(),
     paragraphIndent: config.get('paragraphIndent', 2),
     lineSpacing: config.get('lineSpacing', 1),
+    fontSize: config.get('fontSize', 14),
     highlightColor: config.get('highlightColor', '#FFD700'),
     highlightTextColor: config.get('highlightTextColor', '#000000')
   };

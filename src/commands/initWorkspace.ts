@@ -36,7 +36,32 @@ export const initWorkspace = async (): Promise<void> => {
   // 写入配置文件
   writeConfig({ workspacePath: root });
 
-  vscode.window.showInformationMessage('小说工作区初始化成功！');
+  // 更新工作区设置：隐藏无关文件以减少其他插件干扰
+  const config = vscode.workspace.getConfiguration();
+  await config.update('files.exclude', {
+    ...config.get('files.exclude'),
+    '**/*.js': true,
+    '**/*.ts': true,
+    '**/*.jsx': true,
+    '**/*.tsx': true,
+    '**/*.py': true,
+    '**/*.java': true,
+    '**/*.c': true,
+    '**/*.cpp': true,
+    '**/*.go': true,
+    '**/*.php': true,
+    '**/*.rb': true,
+    '**/*.rs': true,
+    '**/*.cs': true,
+    '**/*.html': true,
+    '**/*.css': true,
+    'node_modules': true,
+    '.git': true,
+    '.svn': true,
+    '.hg': true
+  }, vscode.ConfigurationTarget.Workspace);
+
+  vscode.window.showInformationMessage('小说工作区初始化成功！已自动屏蔽代码文件。');
 
   // 刷新资源管理器：尝试多个可能的命令并捕获错误以防命令不存在
   const refreshCommands = [

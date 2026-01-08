@@ -56,6 +56,12 @@ const openConfigPanel = async () => {
             key: 'lineSpacing' // 现在类型匹配
         },
         {
+            label: '字号大小',
+            description: `当前值: ${config.fontSize} (仅修改配置)`,
+            type: 'number',
+            key: 'fontSize'
+        },
+        {
             label: '高亮背景色',
             description: `当前值: ${config.highlightColor}`,
             type: 'string',
@@ -98,6 +104,10 @@ const openConfigPanel = async () => {
             const value = selected.type === 'number' ? Number(input) : input;
             (0, config_1.writeConfig)({ [selected.key]: value });
             vscode.workspace.getConfiguration('novel-helper').update(selected.key, value, vscode.ConfigurationTarget.Workspace);
+            // 特殊处理：如果是字号大小，同步更新编辑器设置
+            if (selected.key === 'fontSize') {
+                vscode.workspace.getConfiguration('editor').update('fontSize', value, vscode.ConfigurationTarget.Global);
+            }
             vscode.window.showInformationMessage(`${selected.label}已更新为: ${value}`);
         }
         quickPick.hide();

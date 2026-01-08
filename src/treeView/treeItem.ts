@@ -51,11 +51,7 @@ export class NovelTreeItem extends vscode.TreeItem {
         break;
       case 'create-item':
         // 使用加号图标使“新建”节点更明显
-        try {
-          this.iconPath = new vscode.ThemeIcon('add');
-        } catch (e) {
-          this.iconPath = vscode.ThemeIcon.File;
-        }
+        this.iconPath = new vscode.ThemeIcon('add');
 
         // 特殊处理：初始化工作区命令（无需输入名称）
         if (createType === 'init') {

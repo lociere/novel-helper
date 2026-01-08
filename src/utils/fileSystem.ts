@@ -114,3 +114,22 @@ export const writeFile = (filePath: string, content: string): void => {
     console.error('[Novel Helper] 写入文件错误:', error);
   }
 };
+
+/**
+ * 读取目录下的文件列表
+ * @param dirPath 目录路径
+ * @returns 文件名称数组
+ */
+export const getDirFiles = (dirPath: string): string[] => {
+  if (!dirPath || !fs.existsSync(dirPath)) {
+    return [];
+  }
+  
+  try {
+    return fs.readdirSync(dirPath);
+  } catch (error) {
+    console.error('[Novel Helper] 读取目录失败:', error);
+    vscode.window.showErrorMessage(`读取目录失败：${(error as Error).message}`);
+    return [];
+  }
+};

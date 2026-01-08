@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { NovelTreeItem } from './treeItem';
-import { getWorkspaceRoot, isNovelWorkspace, getDirFiles } from '../utils/helpers';
+import { getWorkspaceRoot, isNovelWorkspace, countWords } from '../utils/helpers';
+import { getDirFiles } from '../utils/fileSystem';
 import { CONFIG_FILE_NAME, getConfigFilePath } from '../utils/config';
 
 /** 小说树数据提供器 */
@@ -142,12 +143,29 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
 
     // 添加文件节点
     files.forEach(f => {
-      children.push(new NovelTreeItem(
+      const filePath = path.join(dirPath, f);
+      const item = new NovelTreeItem(
         f,
         'file',
         vscode.TreeItemCollapsibleState.None,
-        vscode.Uri.file(path.join(dirPath, f))
-      ));
+        vscode.Uri.file(filePath)
+      );
+
+      // 计算并显示文本文件的字数
+      if (f.endsWith('.txt') || f.endsWith('.md')) {
+        try {
+          // 优先读取已打开的文档内容（包含未保存变更），否则读取磁盘文件
+          const openDoc = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === filePath);
+          const content = openDoc ? openDoc.getText() : fs.readFileSync(filePath, 'utf-8');
+          
+          const count = countWords(content);
+          item.description = `${count}字`;
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      children.push(item);
     });
 
     return children;

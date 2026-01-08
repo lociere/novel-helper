@@ -76,11 +76,6 @@
     "menus": {
       "editor/context": [
         {
-          "command": "novel-helper.addHighlightFromSelection",
-          "when": "editorHasSelection",
-          "group": "1_novel_helper"
-        },
-        {
           "command": "novel-helper.addHighlight",
           "when": "editorHasSelection",
           "group": "1_novel_helper"
@@ -92,6 +87,16 @@
         },
         {
           "command": "novel-helper.removeHighlight",
+          "when": "editorTextFocus",
+          "group": "1_novel_helper"
+        },
+        {
+          "command": "novel-helper.openConfigPanel",
+          "when": "editorTextFocus",
+          "group": "1_novel_helper"
+        },
+        {
+          "command": "novel-helper.formatDocument",
           "when": "editorTextFocus",
           "group": "1_novel_helper"
         }
@@ -109,6 +114,11 @@
           "type": "number",
           "default": 1,
           "description": "行间空行数"
+        },
+        "novel-helper.fontSize": {
+          "type": "number",
+          "default": 14,
+          "description": "编辑器字号大小"
         },
         "novel-helper.highlightColor": {
           "type": "string",
