@@ -10,6 +10,8 @@
     "Other"
   ],
   "activationEvents": [
+    "onCommand:novel-helper.initWorkspace",
+    "onView:novelTreeView",
     "workspaceContains:.novel-helper.json"
   ],
   "main": "./out/extension.js",
@@ -33,6 +35,21 @@
       {
         "command": "novel-helper.openConfigPanel",
         "title": "Novel Helper: 打开配置面板",
+        "category": "Novel Helper"
+      },
+      {
+        "command": "novel-helper.showConfigPanel",
+        "title": "Novel Helper: 显示配置面板",
+        "category": "Novel Helper"
+      },
+      {
+        "command": "novel-helper.addHighlightFromSelection",
+        "title": "Novel Helper: 在设定中添加高亮",
+        "category": "Novel Helper"
+      },
+      {
+        "command": "novel-helper.jumpToHighlightSource",
+        "title": "Novel Helper: 跳转到高亮源",
         "category": "Novel Helper"
       }
     ],
@@ -78,10 +95,13 @@
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
-    "@types/vscode": "^1.80.0",
     "@types/node": "20.2.5",
-    "typescript": "^5.1.3",
-    "@vscode/test-electron": "^2.3.2"
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^8.52.0",
+    "@typescript-eslint/parser": "^8.52.0",
+    "@vscode/test-electron": "^2.3.2",
+    "eslint": "^9.39.2",
+    "typescript": "^5.1.3"
   },
   "icon": "media/icons/novel-icon.png",
   "publisher": "your-name",

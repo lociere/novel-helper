@@ -44,10 +44,11 @@ class StatusBarManager {
         this.statusBarItems = {};
         this.currentWordCount = 0;
         this.editStartTime = 0;
+        /** 初始化状态栏项 */
+        this.disposables = [];
         this.initStatusBarItems();
         this.startListening();
     }
-    /** 初始化状态栏项 */
     initStatusBarItems() {
         // 字数统计
         this.statusBarItems.wordCount = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -73,7 +74,7 @@ class StatusBarManager {
     /** 开始监听文档变化 */
     startListening() {
         // 文档打开时初始化
-        vscode.window.onDidChangeActiveTextEditor(editor => {
+        const activeEditorDisposable = vscode.window.onDidChangeActiveTextEditor(editor => {
             if (editor) {
                 this.editStartTime = (0, helpers_1.getCurrentTimestamp)();
                 const config = (0, config_1.readConfig)();
@@ -82,19 +83,22 @@ class StatusBarManager {
             }
         });
         // 文档内容变化时更新
-        vscode.workspace.onDidChangeTextDocument(event => {
+        const changeDocDisposable = vscode.workspace.onDidChangeTextDocument(event => {
             const editor = vscode.window.activeTextEditor;
             if (editor && event.document === editor.document) {
                 this.updateStatusBar(event.document);
             }
         });
         // 文档关闭时更新累计时间
-        vscode.workspace.onDidCloseTextDocument(document => {
+        const closeDocDisposable = vscode.workspace.onDidCloseTextDocument(document => {
             const config = (0, config_1.readConfig)();
             const currentTime = (0, helpers_1.getCurrentTimestamp)();
             const duration = currentTime - config.editStartTime;
             (0, config_1.writeConfig)({ totalEditTime: config.totalEditTime + duration });
         });
+        // 统一管理 disposables
+        this.context.subscriptions.push(activeEditorDisposable, changeDocDisposable, closeDocDisposable);
+        this.disposables.push(activeEditorDisposable, changeDocDisposable, closeDocDisposable);
     }
     /** 更新状态栏 */
     updateStatusBar(document) {
@@ -125,6 +129,10 @@ class StatusBarManager {
     /** 销毁状态栏项 */
     dispose() {
         Object.values(this.statusBarItems).forEach(item => item.dispose());
+        this.disposables.forEach(d => { try {
+            d.dispose();
+        }
+        catch (e) { /* ignore */ } });
     }
 }
 exports.StatusBarManager = StatusBarManager;

@@ -55,13 +55,13 @@ class StatsManager {
     /** 开始监听 */
     startListening() {
         // 文档保存时更新总字数
-        vscode.workspace.onDidSaveTextDocument(document => {
+        const saveDisposable = vscode.workspace.onDidSaveTextDocument(document => {
             const wordCount = (0, helpers_1.countWords)(document.getText());
             this.totalWordCount = wordCount;
             vscode.window.setStatusBarMessage(`已保存，当前总字数: ${this.totalWordCount}`, 3000);
         });
         // 显示统计信息命令
-        return vscode.commands.registerCommand('novel-helper.showStats', () => {
+        const cmdDisposable = vscode.commands.registerCommand('novel-helper.showStats', () => {
             const config = (0, config_1.readConfig)();
             const currentTime = (0, helpers_1.getCurrentTimestamp)();
             const duration = currentTime - config.editStartTime;
@@ -74,6 +74,7 @@ class StatsManager {
       `;
             vscode.window.showInformationMessage(statsMessage);
         });
+        return vscode.Disposable.from(saveDisposable, cmdDisposable);
     }
     /** 获取总字数 */
     getTotalWordCount() {

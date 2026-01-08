@@ -57,10 +57,6 @@ export const createFile = (filePath: string, content = ''): boolean => {
 
     // 写入文件内容
     fs.writeFileSync(filePath, content, 'utf-8');
-    
-    // 友好的提示信息（仅显示文件名）
-    const fileName = path.basename(filePath);
-    vscode.window.showInformationMessage(`创建文件成功：${fileName}`);
     return true;
   } catch (error) {
     const errMsg = (error as Error).message;

@@ -23,14 +23,14 @@ export class StatsManager {
   /** 开始监听 */
   private startListening(): vscode.Disposable { // 修改：返回 disposable
     // 文档保存时更新总字数
-    vscode.workspace.onDidSaveTextDocument(document => {
+    const saveDisposable = vscode.workspace.onDidSaveTextDocument(document => {
       const wordCount = countWords(document.getText());
       this.totalWordCount = wordCount;
       vscode.window.setStatusBarMessage(`已保存，当前总字数: ${this.totalWordCount}`, 3000);
     });
 
     // 显示统计信息命令
-    return vscode.commands.registerCommand('novel-helper.showStats', () => {
+    const cmdDisposable = vscode.commands.registerCommand('novel-helper.showStats', () => {
       const config = readConfig();
       const currentTime = getCurrentTimestamp();
       const duration = currentTime - config.editStartTime;
@@ -45,6 +45,8 @@ export class StatsManager {
 
       vscode.window.showInformationMessage(statsMessage);
     });
+
+    return vscode.Disposable.from(saveDisposable, cmdDisposable);
   }
 
   /** 获取总字数 */

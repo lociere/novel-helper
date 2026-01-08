@@ -37,12 +37,13 @@ exports.initWorkspace = void 0;
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const fileSystem_1 = require("../utils/fileSystem");
+const helpers_1 = require("../utils/helpers");
 const config_1 = require("../utils/config");
 /**
  * 初始化小说工作区
  */
 const initWorkspace = async () => {
-    const root = (0, fileSystem_1.getWorkspaceRoot)();
+    const root = (0, helpers_1.getWorkspaceRoot)();
     if (!root) {
         vscode.window.showErrorMessage('未找到工作区，请先打开一个文件夹');
         return;
@@ -76,7 +77,6 @@ const initWorkspace = async () => {
         try {
             // 某些命令在不同版本或平台上可能不存在，因此用 try/catch 包裹
             // 使用 await 避免未处理的 promise 拒绝
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
             await vscode.commands.executeCommand(cmd);
             break;
         }
@@ -84,7 +84,6 @@ const initWorkspace = async () => {
             // 如果命令不存在或执行失败，继续尝试下一个命令
             // 最终若都失败则静默忽略，避免抛出未处理异常
             // 仅在开发者工具里打印以便调试
-            // eslint-disable-next-line no-console
             console.warn(`刷新资源管理器命令 '${cmd}' 无法执行，已忽略。`, err);
         }
     }

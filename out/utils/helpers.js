@@ -32,85 +32,152 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCurrentTimestamp = exports.formatNumber = exports.getSelectedText = exports.calculateWritingSpeed = exports.formatTime = exports.countWords = void 0;
+exports.isNovelWorkspace = exports.getDirFiles = exports.calculateWritingSpeed = exports.formatTime = exports.getCurrentTimestamp = exports.getWorkspaceRoot = exports.countWords = void 0;
 const vscode = __importStar(require("vscode"));
-const dayjs_1 = __importDefault(require("dayjs"));
+const path = __importStar(require("path"));
+const fs = __importStar(require("fs"));
+const config_1 = require("./config");
 /**
- * 计算文本字数（含中文、英文、数字，不含空格和换行）
- * @param text 文本内容
- * @returns 字数
+ * 统计文本字数（优化版：适配中文小说计数规则）
+ * 规则：中文字符算1个，英文单词算1个，数字算1个
+ * @param text 待统计的文本
+ * @returns 精准计数字数
  */
 const countWords = (text) => {
-    if (!text) {
+    // 增加类型校验：非字符串直接返回0
+    if (!text || typeof text !== 'string') {
         return 0;
     }
-    // 移除空格和换行
-    const cleanText = text.replace(/\s/g, '');
-    return cleanText.length;
+    let totalCount = 0;
+    // 1. 匹配中文字符（[\u4e00-\u9fa5] 覆盖常用中文）
+    const chineseCharMatches = text.match(/[\u4e00-\u9fa5]/g);
+    if (chineseCharMatches) {
+        totalCount += chineseCharMatches.length;
+    }
+    // 2. 匹配英文单词（至少1个字母，后跟可选字母/数字/下划线）
+    const englishWordMatches = text.match(/[a-zA-Z]+[a-zA-Z0-9_]*/g);
+    if (englishWordMatches) {
+        totalCount += englishWordMatches.length;
+    }
+    // 3. 匹配独立数字（按完整数字串算1个，如"123"算1个）
+    const numberMatches = text.match(/\b\d+\b/g);
+    if (numberMatches) {
+        totalCount += numberMatches.length;
+    }
+    return totalCount;
 };
 exports.countWords = countWords;
 /**
- * 格式化时间（秒转时分秒）
- * @param seconds 秒数
- * @returns 格式化后的时间字符串
+ * 获取工作区根路径（兼容多工作区）
+ * @returns 根路径字符串 | undefined
  */
-const formatTime = (seconds) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    return `${h > 0 ? `${h}小时` : ''}${m > 0 ? `${m}分钟` : ''}${s}秒`;
+const getWorkspaceRoot = () => {
+    // 优先使用 config 中保存的 workspacePath（初始化后会写入），否则回退到当前打开的第一个工作区
+    try {
+        const cfg = (0, config_1.readConfig)();
+        if (cfg && cfg.workspacePath && fs.existsSync(cfg.workspacePath)) {
+            return cfg.workspacePath;
+        }
+    }
+    catch (e) {
+        // 忽略读取配置失败，回退到 workspaceFolders
+    }
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+        return undefined;
+    }
+    return folders[0].uri.fsPath;
+};
+exports.getWorkspaceRoot = getWorkspaceRoot;
+/**
+ * 获取当前时间戳（毫秒）
+ */
+const getCurrentTimestamp = () => Date.now();
+exports.getCurrentTimestamp = getCurrentTimestamp;
+/**
+ * 将毫秒格式化为易读字符串（例如：1天 2小时 3分钟）
+ */
+const formatTime = (ms) => {
+    if (!ms || ms <= 0) {
+        return '0秒';
+    }
+    const totalSeconds = Math.floor(ms / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const parts = [];
+    if (days) {
+        parts.push(`${days}天`);
+    }
+    if (hours) {
+        parts.push(`${hours}小时`);
+    }
+    if (minutes) {
+        parts.push(`${minutes}分钟`);
+    }
+    if (seconds) {
+        parts.push(`${seconds}秒`);
+    }
+    return parts.join(' ');
 };
 exports.formatTime = formatTime;
 /**
- * 计算码字速度（字/分钟）
- * @param wordCount 字数变化
- * @param duration 时长（秒）
- * @returns 速度
+ * 计算写作速度（字/分钟），输入时间为毫秒
  */
-const calculateWritingSpeed = (wordCount, duration) => {
-    if (duration === 0 || wordCount === 0) {
+const calculateWritingSpeed = (words, ms) => {
+    if (!ms || ms <= 0) {
         return 0;
     }
-    const minutes = duration / 60;
-    return Math.round(wordCount / minutes);
+    const minutes = ms / 60000;
+    if (minutes <= 0) {
+        return 0;
+    }
+    return Math.round(words / minutes);
 };
 exports.calculateWritingSpeed = calculateWritingSpeed;
 /**
- * 获取选中的文本
- * @returns 选中的文本
+ * 读取目录下的文件列表（优化：增加错误捕获）
+ * @param dirPath 目录路径
+ * @returns 文件名称数组
  */
-const getSelectedText = () => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return '';
+const getDirFiles = (dirPath) => {
+    if (!dirPath || !fs.existsSync(dirPath)) {
+        return [];
     }
-    const selection = editor.selection;
-    if (selection.isEmpty) {
-        return '';
+    try {
+        return fs.readdirSync(dirPath);
     }
-    return editor.document.getText(selection);
+    catch (error) {
+        console.error('[Novel Helper] 读取目录失败:', error);
+        vscode.window.showErrorMessage(`读取目录失败：${error.message}`);
+        return [];
+    }
 };
-exports.getSelectedText = getSelectedText;
+exports.getDirFiles = getDirFiles;
 /**
- * 格式化数字（补零）
- * @param num 数字
- * @param length 长度
- * @returns 格式化后的字符串
+ * 判断当前工作区是否为已初始化的小说工作区（存在关键目录）
  */
-const formatNumber = (num, length = 2) => {
-    return num.toString().padStart(length, '0');
+const isNovelWorkspace = () => {
+    // 优先检查配置文件中保存的 workspacePath，兼容用户在初始化时指定的目录
+    try {
+        const cfg = (0, config_1.readConfig)();
+        const cfgRoot = cfg && cfg.workspacePath && fs.existsSync(cfg.workspacePath) ? cfg.workspacePath : undefined;
+        const root = cfgRoot || (0, exports.getWorkspaceRoot)();
+        if (!root)
+            return false;
+        const requiredDirs = ['大纲', '设定', '素材', '正文'];
+        return requiredDirs.every(d => fs.existsSync(path.join(root, d)));
+    }
+    catch (e) {
+        // 若读取配置失败，则退化到基于工作区的判断
+        const root = (0, exports.getWorkspaceRoot)();
+        if (!root)
+            return false;
+        const requiredDirs = ['大纲', '设定', '素材', '正文'];
+        return requiredDirs.every(d => fs.existsSync(path.join(root, d)));
+    }
 };
-exports.formatNumber = formatNumber;
-/**
- * 获取当前时间戳（秒）
- * @returns 时间戳
- */
-const getCurrentTimestamp = () => {
-    return (0, dayjs_1.default)().unix();
-};
-exports.getCurrentTimestamp = getCurrentTimestamp;
+exports.isNovelWorkspace = isNovelWorkspace;
 //# sourceMappingURL=helpers.js.map

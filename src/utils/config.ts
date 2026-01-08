@@ -9,7 +9,11 @@ export interface NovelHelperConfig {
   lineSpacing: number;
   highlightColor: string;
   highlightTextColor: string;
-  highlightItems: { [key: string]: { path: string; range: vscode.Range } };
+  /**
+   * highlightItems 的值采用可序列化的范围表示，便于写入配置文件
+   * range: { start: { line, character }, end: { line, character } }
+   */
+  highlightItems: { [key: string]: { path: string; range: { start: { line: number; character: number }; end: { line: number; character: number } } } };
   editStartTime: number;
   totalEditTime: number;
   lastWordCount: number;
@@ -92,4 +96,20 @@ export const getVSCodeConfig = (): NovelHelperConfig => {
     highlightColor: config.get('highlightColor', '#FFD700'),
     highlightTextColor: config.get('highlightTextColor', '#000000')
   };
+};
+
+/**
+ * 在工作区设置中隐藏配置文件
+ */
+export const hideConfigFileInExplorer = (): void => {
+  try {
+    const workspaceConfig = vscode.workspace.getConfiguration('files');
+    const exclude = workspaceConfig.get<any>('exclude') || {};
+    if (!exclude[CONFIG_FILE_NAME]) {
+      exclude[CONFIG_FILE_NAME] = true;
+      workspaceConfig.update('exclude', exclude, vscode.ConfigurationTarget.Workspace);
+    }
+  } catch (e) {
+    // 忽略配置更新失败
+  }
 };

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getVSCodeConfig = exports.writeConfig = exports.readConfig = exports.getConfigFilePath = exports.CONFIG_FILE_NAME = void 0;
+exports.hideConfigFileInExplorer = exports.getVSCodeConfig = exports.writeConfig = exports.readConfig = exports.getConfigFilePath = exports.CONFIG_FILE_NAME = void 0;
 const vscode = __importStar(require("vscode"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -116,4 +116,21 @@ const getVSCodeConfig = () => {
     };
 };
 exports.getVSCodeConfig = getVSCodeConfig;
+/**
+ * 在工作区设置中隐藏配置文件
+ */
+const hideConfigFileInExplorer = () => {
+    try {
+        const workspaceConfig = vscode.workspace.getConfiguration('files');
+        const exclude = workspaceConfig.get('exclude') || {};
+        if (!exclude[exports.CONFIG_FILE_NAME]) {
+            exclude[exports.CONFIG_FILE_NAME] = true;
+            workspaceConfig.update('exclude', exclude, vscode.ConfigurationTarget.Workspace);
+        }
+    }
+    catch (e) {
+        // 忽略配置更新失败
+    }
+};
+exports.hideConfigFileInExplorer = hideConfigFileInExplorer;
 //# sourceMappingURL=config.js.map

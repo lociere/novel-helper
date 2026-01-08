@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { createDir, createFile, getWorkspaceRoot } from '../utils/fileSystem';
-import { writeConfig, CONFIG_FILE_NAME } from '../utils/config';
+import { createDir, createFile } from '../utils/fileSystem';
+import { getWorkspaceRoot } from '../utils/helpers';
+import { writeConfig } from '../utils/config';
 
 /**
  * 初始化小说工作区
@@ -47,14 +48,14 @@ export const initWorkspace = async (): Promise<void> => {
     try {
       // 某些命令在不同版本或平台上可能不存在，因此用 try/catch 包裹
       // 使用 await 避免未处理的 promise 拒绝
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+       
       await vscode.commands.executeCommand(cmd);
       break;
     } catch (err) {
       // 如果命令不存在或执行失败，继续尝试下一个命令
       // 最终若都失败则静默忽略，避免抛出未处理异常
       // 仅在开发者工具里打印以便调试
-      // eslint-disable-next-line no-console
+       
       console.warn(`刷新资源管理器命令 '${cmd}' 无法执行，已忽略。`, err);
     }
   }
