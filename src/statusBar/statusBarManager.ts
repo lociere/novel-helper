@@ -49,7 +49,7 @@ export class StatusBarManager {
     const activeEditorDisposable = vscode.window.onDidChangeActiveTextEditor(editor => {
       if (editor) {
         this.editStartTime = getCurrentTimestamp();
-        const config = readConfig();
+        // remove unused config read
         writeConfig({ editStartTime: this.editStartTime, lastWordCount: countWords(editor.document.getText()) });
         this.updateStatusBar(editor.document);
       }
@@ -64,7 +64,7 @@ export class StatusBarManager {
     });
 
     // 文档关闭时更新累计时间
-    const closeDocDisposable = vscode.workspace.onDidCloseTextDocument(document => {
+    const closeDocDisposable = vscode.workspace.onDidCloseTextDocument(() => {
       const config = readConfig();
       const currentTime = getCurrentTimestamp();
       const duration = currentTime - config.editStartTime;
@@ -74,6 +74,16 @@ export class StatusBarManager {
     // 统一管理 disposables
     this.context.subscriptions.push(activeEditorDisposable, changeDocDisposable, closeDocDisposable);
     this.disposables.push(activeEditorDisposable, changeDocDisposable, closeDocDisposable);
+
+    // 插件启动时，如果已有打开的编辑器，立即初始化状态栏并更新配置
+    const activeEditor = vscode.window.activeTextEditor;
+    if (activeEditor) {
+      this.editStartTime = getCurrentTimestamp();
+      // unused config variable removed
+      // 这里更新 lastWordCount 是为了确保后续的速度计算是基于当前开始写的时候的字数
+      writeConfig({ editStartTime: this.editStartTime, lastWordCount: countWords(activeEditor.document.getText()) });
+      this.updateStatusBar(activeEditor.document);
+    }
   }
 
   /** 更新状态栏 */

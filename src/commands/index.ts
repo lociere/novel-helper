@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { initWorkspace } from './initWorkspace';
 import { createItem, CreateItemType } from './createItems';
-import { openConfigPanel } from '../panel/configPanel';
 
 /**
  * 将命令执行包装，自动捕获同步或异步错误并显示友好提示

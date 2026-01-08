@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { countWords, formatTime, calculateWritingSpeed, getCurrentTimestamp } from '../utils/helpers';
-import { readConfig, writeConfig } from '../utils/config';
+import { readConfig } from '../utils/config';
 
 /** 统计管理器 */
 export class StatsManager {

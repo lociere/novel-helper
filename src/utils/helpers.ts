@@ -121,13 +121,13 @@ export const isNovelWorkspace = (): boolean => {
     const cfg = readConfig();
     const cfgRoot = cfg && cfg.workspacePath && fs.existsSync(cfg.workspacePath) ? cfg.workspacePath : undefined;
     const root = cfgRoot || getWorkspaceRoot();
-    if (!root) return false;
+    if (!root) {return false;}
     const requiredDirs = ['大纲', '设定', '素材', '正文'];
     return requiredDirs.every(d => fs.existsSync(path.join(root, d)));
   } catch (e) {
     // 若读取配置失败，则退化到基于工作区的判断
     const root = getWorkspaceRoot();
-    if (!root) return false;
+    if (!root) {return false;}
     const requiredDirs = ['大纲', '设定', '素材', '正文'];
     return requiredDirs.every(d => fs.existsSync(path.join(root, d)));
   }

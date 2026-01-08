@@ -42,12 +42,12 @@ const helpers_1 = require("../utils/helpers");
  * 项目创建配置常量（优化：统一管理路径、模板、类型，减少重复代码）
  */
 const CREATE_ITEM_CONFIG = {
-    '总大纲': { dir: '大纲', ext: 'md', template: `# {{name}}\n\n`, isDir: false },
-    '分大纲': { dir: '大纲', ext: 'md', template: `## {{name}}\n\n`, isDir: false },
-    '角色设定': { dir: '设定/角色设定', ext: 'md', template: `# {{name}} 设定\n\n`, isDir: false },
-    '事物设定': { dir: '设定/事物设定', ext: 'md', template: `# {{name}} 设定\n\n`, isDir: false },
+    '总大纲': { dir: '大纲', ext: 'md', template: '# {{name}}\n\n', isDir: false },
+    '分大纲': { dir: '大纲', ext: 'md', template: '## {{name}}\n\n', isDir: false },
+    '角色设定': { dir: '设定/角色设定', ext: 'md', template: '# {{name}} 设定\n\n', isDir: false },
+    '事物设定': { dir: '设定/事物设定', ext: 'md', template: '# {{name}} 设定\n\n', isDir: false },
     '图片素材': { dir: '素材/图片素材', isDir: true },
-    '文字素材': { dir: '素材/文字素材', ext: 'md', template: `# {{name}} 素材\n\n`, isDir: false },
+    '文字素材': { dir: '素材/文字素材', ext: 'md', template: '# {{name}} 素材\n\n', isDir: false },
     '设定文件夹': { dir: '设定', isDir: true },
     '素材文件夹': { dir: '素材', isDir: true },
     '分卷': { dir: '正文', isDir: true },

@@ -64,7 +64,7 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
         dirPath = element.resourceUri.fsPath;
       } else {
         const label = typeof element.label === 'string' ? element.label : element.label?.toString();
-        if (!label) return [];
+        if (!label) {return [];}
         switch (label) {
           case '大纲':
             dirPath = path.join(root, '大纲');
@@ -86,9 +86,9 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
       const configFullPath = getConfigFilePath();
       const allFiles = getDirFiles(dirPath).filter(f => {
         try {
-          if (f === CONFIG_FILE_NAME) return false;
+          if (f === CONFIG_FILE_NAME) {return false;}
           const full = path.join(dirPath, f);
-          if (full === configFullPath) return false;
+          if (full === configFullPath) {return false;}
         } catch (e) {
           // ignore and keep file
         }

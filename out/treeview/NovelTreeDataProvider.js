@@ -89,8 +89,9 @@ class NovelTreeDataProvider {
             }
             else {
                 const label = typeof element.label === 'string' ? element.label : element.label?.toString();
-                if (!label)
+                if (!label) {
                     return [];
+                }
                 switch (label) {
                     case '大纲':
                         dirPath = path.join(root, '大纲');
@@ -112,11 +113,13 @@ class NovelTreeDataProvider {
             const configFullPath = (0, config_1.getConfigFilePath)();
             const allFiles = (0, helpers_1.getDirFiles)(dirPath).filter(f => {
                 try {
-                    if (f === config_1.CONFIG_FILE_NAME)
+                    if (f === config_1.CONFIG_FILE_NAME) {
                         return false;
+                    }
                     const full = path.join(dirPath, f);
-                    if (full === configFullPath)
+                    if (full === configFullPath) {
                         return false;
+                    }
                 }
                 catch (e) {
                     // ignore and keep file

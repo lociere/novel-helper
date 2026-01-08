@@ -96,6 +96,14 @@ class Highlighter {
                 vscode.window.showWarningMessage('高亮文本不能为空！');
                 return;
             }
+            // 序列化范围并写入配置，确保关闭后重开依然生效
+            const serialRange = {
+                start: { line: selection.start.line, character: selection.start.character },
+                end: { line: selection.end.line, character: selection.end.character }
+            };
+            const cfg = (0, config_1.readConfig)();
+            const newItems = { ...(cfg.highlightItems || {}), [text]: { path: editor.document.uri.fsPath, range: serialRange } };
+            (0, config_1.writeConfig)({ highlightItems: newItems });
             this.highlightItems[text] = {
                 path: editor.document.uri.fsPath,
                 range: selection
@@ -136,7 +144,7 @@ class Highlighter {
         });
         context.subscriptions.push(addFromSettingDisposable);
         // 跳转到高亮源文件
-        const jumpDisposable = vscode.commands.registerCommand('novel-helper.jumpToHighlightSource', async (key) => {
+        const jumpDisposable = vscode.commands.registerCommand('novel-helper.jumpToHighlightSource', async (arg) => {
             const cfg = (0, config_1.readConfig)();
             const items = cfg.highlightItems || {};
             const keys = Object.keys(items);
@@ -144,7 +152,33 @@ class Highlighter {
                 vscode.window.showInformationMessage('未找到任何高亮设定');
                 return;
             }
-            let selectedKey = key;
+            let selectedKey;
+            // 1. 如果参数是字符串，直接使用（可能是从代码调用）
+            if (typeof arg === 'string') {
+                selectedKey = arg;
+            }
+            // 2. 尝试从当前编辑器选区或光标位置获取
+            else {
+                const editor = vscode.window.activeTextEditor;
+                if (editor) {
+                    // 优先检查选区
+                    const selectionText = editor.document.getText(editor.selection).trim();
+                    if (selectionText && items[selectionText]) {
+                        selectedKey = selectionText;
+                    }
+                    // 其次检查光标下的单词
+                    else {
+                        const range = editor.document.getWordRangeAtPosition(editor.selection.active);
+                        if (range) {
+                            const word = editor.document.getText(range).trim();
+                            if (items[word]) {
+                                selectedKey = word;
+                            }
+                        }
+                    }
+                }
+            }
+            // 3. 如果仍未确定key，则显示选择列表
             if (!selectedKey) {
                 selectedKey = await vscode.window.showQuickPick(keys, { placeHolder: '选择要跳转的高亮项' });
             }
@@ -153,7 +187,7 @@ class Highlighter {
             }
             const hi = items[selectedKey];
             if (!hi) {
-                vscode.window.showErrorMessage('未找到高亮源信息');
+                vscode.window.showErrorMessage(`未找到“${selectedKey}”的高亮源信息`);
                 return;
             }
             try {
@@ -169,6 +203,56 @@ class Highlighter {
             }
         });
         context.subscriptions.push(jumpDisposable);
+        // 移除高亮
+        const removeDisposable = vscode.commands.registerCommand('novel-helper.removeHighlight', async (arg) => {
+            const cfg = (0, config_1.readConfig)();
+            const items = cfg.highlightItems || {};
+            const keys = Object.keys(items);
+            if (keys.length === 0) {
+                vscode.window.showInformationMessage('当前没有设置任何高亮');
+                return;
+            }
+            let selectedKey;
+            // 1. 如果参数是字符串，直接使用
+            if (typeof arg === 'string') {
+                selectedKey = arg;
+            }
+            // 2. 尝试从当前编辑器选区或光标位置获取
+            else {
+                const editor = vscode.window.activeTextEditor;
+                if (editor) {
+                    const selectionText = editor.document.getText(editor.selection).trim();
+                    if (selectionText && items[selectionText]) {
+                        selectedKey = selectionText;
+                    }
+                    else {
+                        const range = editor.document.getWordRangeAtPosition(editor.selection.active);
+                        if (range) {
+                            const word = editor.document.getText(range).trim();
+                            if (items[word]) {
+                                selectedKey = word;
+                            }
+                        }
+                    }
+                }
+            }
+            // 3. 如果未确定，显示列表供选择
+            if (!selectedKey) {
+                selectedKey = await vscode.window.showQuickPick(keys, { placeHolder: '选择要移除的高亮项' });
+            }
+            if (!selectedKey) {
+                return;
+            }
+            // 执行删除
+            delete items[selectedKey];
+            (0, config_1.writeConfig)({ highlightItems: items });
+            // 更新内存
+            delete this.highlightItems[selectedKey];
+            this.regexCache.delete(selectedKey);
+            this.updateHighlights();
+            vscode.window.showInformationMessage(`已移除高亮：“${selectedKey}”`);
+        });
+        context.subscriptions.push(removeDisposable);
     }
     /**
      * 注册事件监听器（优化：添加防抖减少高频触发）
@@ -194,6 +278,14 @@ class Highlighter {
         });
         context.subscriptions.push(docDisposable, editorDisposable);
         this.disposables.push(docDisposable, editorDisposable);
+        // 监听可见编辑器变化（处理分屏等多编辑器情况）
+        const visibleEditorsDisposable = vscode.window.onDidChangeVisibleTextEditors(() => {
+            debouncedUpdate();
+        });
+        context.subscriptions.push(visibleEditorsDisposable);
+        this.disposables.push(visibleEditorsDisposable);
+        // 初始化时立即更新所有可见编辑器的高亮
+        this.updateHighlights();
     }
     /**
      * 转义正则特殊字符（避免正则语法错误）
@@ -204,11 +296,19 @@ class Highlighter {
         return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
     /**
-     * 更新文本高亮（优化：缓存正则+错误处理+有效性检查）
+     * 更新所有可见编辑器的高亮
      */
     updateHighlights() {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
+        // 遍历所有可见编辑器，而不仅仅是 activeTextEditor
+        vscode.window.visibleTextEditors.forEach(editor => {
+            this.updateEditorHighlights(editor);
+        });
+    }
+    /**
+     * 更新单个编辑器的高亮
+     */
+    updateEditorHighlights(editor) {
+        if (!editor || !editor.document) {
             return;
         }
         const document = editor.document;
@@ -244,8 +344,9 @@ class Highlighter {
                 try {
                     if (hi && hi.path && document.uri.fsPath === hi.path && hi.range instanceof vscode.Range) {
                         const actual = document.getText(hi.range).trim();
-                        if (actual)
+                        if (actual) {
                             searchText = actual;
+                        }
                     }
                 }
                 catch (e) {
@@ -267,8 +368,9 @@ class Highlighter {
                     const newRange = new vscode.Range(startPos, endPos);
                     // 避免重复添加与已存在的持久化范围重复
                     const dup = ranges.some(r => r.start.isEqual(newRange.start) && r.end.isEqual(newRange.end));
-                    if (!dup)
+                    if (!dup) {
                         ranges.push(newRange);
+                    }
                 }
             }
             catch (error) {
