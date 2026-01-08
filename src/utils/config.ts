@@ -105,8 +105,22 @@ export const hideConfigFileInExplorer = (): void => {
   try {
     const workspaceConfig = vscode.workspace.getConfiguration('files');
     const exclude = workspaceConfig.get<any>('exclude') || {};
+    let changed = false;
     if (!exclude[CONFIG_FILE_NAME]) {
       exclude[CONFIG_FILE_NAME] = true;
+      changed = true;
+    }
+    // 隐藏 .vscode 文件夹（工作区设置）
+    if (!exclude['.vscode']) {
+      exclude['.vscode'] = true;
+      changed = true;
+    }
+    // 额外添加通配，确保隐藏子项
+    if (!exclude['.vscode/**']) {
+      exclude['.vscode/**'] = true;
+      changed = true;
+    }
+    if (changed) {
       workspaceConfig.update('exclude', exclude, vscode.ConfigurationTarget.Workspace);
     }
   } catch (e) {
