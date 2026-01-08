@@ -73,41 +73,62 @@ class StatusBarManager {
     }
     /** 开始监听文档变化 */
     startListening() {
-        // 文档打开时初始化
+        // 1. 文档切换：更新开始时间并刷新状态
         const activeEditorDisposable = vscode.window.onDidChangeActiveTextEditor(editor => {
-            if (editor) {
-                this.editStartTime = (0, helpers_1.getCurrentTimestamp)();
-                // remove unused config read
-                (0, config_1.writeConfig)({ editStartTime: this.editStartTime, lastWordCount: (0, helpers_1.countWords)(editor.document.getText()) });
-                this.updateStatusBar(editor.document);
-            }
+            this.handleActiveEditorChange(editor);
         });
-        // 文档内容变化时更新
+        // 2. 文档内容变化：更新实时统计
         const changeDocDisposable = vscode.workspace.onDidChangeTextDocument(event => {
-            const editor = vscode.window.activeTextEditor;
-            if (editor && event.document === editor.document) {
-                this.updateStatusBar(event.document);
-            }
+            this.handleDocumentChange(event);
         });
-        // 文档关闭时更新累计时间
+        // 3. 文档关闭：累计编辑时长
         const closeDocDisposable = vscode.workspace.onDidCloseTextDocument(() => {
-            const config = (0, config_1.readConfig)();
-            const currentTime = (0, helpers_1.getCurrentTimestamp)();
-            const duration = currentTime - config.editStartTime;
-            (0, config_1.writeConfig)({ totalEditTime: config.totalEditTime + duration });
+            this.handleDocumentClose();
         });
-        // 统一管理 disposables
-        this.context.subscriptions.push(activeEditorDisposable, changeDocDisposable, closeDocDisposable);
-        this.disposables.push(activeEditorDisposable, changeDocDisposable, closeDocDisposable);
-        // 插件启动时，如果已有打开的编辑器，立即初始化状态栏并更新配置
+        // 统一管理资源
+        const disposables = [activeEditorDisposable, changeDocDisposable, closeDocDisposable];
+        this.context.subscriptions.push(...disposables);
+        this.disposables.push(...disposables);
+        // 4. 插件启动时的初始化检查
         const activeEditor = vscode.window.activeTextEditor;
         if (activeEditor) {
-            this.editStartTime = (0, helpers_1.getCurrentTimestamp)();
-            // unused config variable removed
-            // 这里更新 lastWordCount 是为了确保后续的速度计算是基于当前开始写的时候的字数
-            (0, config_1.writeConfig)({ editStartTime: this.editStartTime, lastWordCount: (0, helpers_1.countWords)(activeEditor.document.getText()) });
-            this.updateStatusBar(activeEditor.document);
+            this.handleActiveEditorChange(activeEditor);
         }
+    }
+    /**
+     * 处理编辑器激活/切换
+     */
+    handleActiveEditorChange(editor) {
+        if (!editor) {
+            return;
+        }
+        this.editStartTime = (0, helpers_1.getCurrentTimestamp)();
+        const wordCount = (0, helpers_1.countWords)(editor.document.getText());
+        // 更新会话开始状态，用于计算本次速度
+        (0, config_1.writeConfig)({
+            editStartTime: this.editStartTime,
+            lastWordCount: wordCount
+        });
+        this.updateStatusBar(editor.document);
+    }
+    /**
+     * 处理文档内容变更
+     */
+    handleDocumentChange(event) {
+        const editor = vscode.window.activeTextEditor;
+        // 仅当变更发生在当前激活的编辑器中才更新
+        if (editor && event.document === editor.document) {
+            this.updateStatusBar(event.document);
+        }
+    }
+    /**
+     * 处理文档关闭（计算时长）
+     */
+    handleDocumentClose() {
+        const config = (0, config_1.readConfig)();
+        const currentTime = (0, helpers_1.getCurrentTimestamp)();
+        const duration = currentTime - config.editStartTime;
+        (0, config_1.writeConfig)({ totalEditTime: config.totalEditTime + duration });
     }
     /** 更新状态栏 */
     updateStatusBar(document) {
@@ -116,24 +137,22 @@ class StatusBarManager {
         this.currentWordCount = (0, helpers_1.countWords)(text);
         // 计算码字速度
         const currentTime = (0, helpers_1.getCurrentTimestamp)();
-        const duration = currentTime - this.editStartTime;
-        const wordChange = this.currentWordCount - config.lastWordCount;
+        const duration = currentTime - this.editStartTime; // 本次会话时长
+        const wordChange = this.currentWordCount - config.lastWordCount; // 本次字数变化
         const speed = (0, helpers_1.calculateWritingSpeed)(wordChange, duration);
-        // 更新字数
-        this.statusBarItems.wordCount.text = `字数: ${this.currentWordCount}`;
-        this.statusBarItems.wordCount.show();
-        // 更新排版设置
-        this.statusBarItems.format.text = `缩进: ${config.paragraphIndent} | 空行: ${config.lineSpacing}`;
-        this.statusBarItems.format.show();
-        // 更新码字速度
-        this.statusBarItems.speed.text = `速度: ${speed} 字/分钟`;
-        this.statusBarItems.speed.show();
-        // 更新码字时间
-        const totalTime = config.totalEditTime + duration;
-        this.statusBarItems.time.text = `耗时: ${(0, helpers_1.formatTime)(totalTime)}`;
-        this.statusBarItems.time.show();
-        // 保存最新字数
+        this.updateStatusBarItem(this.statusBarItems.wordCount, `字数: ${this.currentWordCount}`);
+        this.updateStatusBarItem(this.statusBarItems.format, `缩进: ${config.paragraphIndent} | 空行: ${config.lineSpacing}`);
+        this.updateStatusBarItem(this.statusBarItems.speed, `速度: ${speed} 字/分钟`);
+        this.updateStatusBarItem(this.statusBarItems.time, `时长: ${(0, helpers_1.formatTime)(config.totalEditTime + duration)}`);
+        // 保存最新字数状态，供下次计算差值
         (0, config_1.writeConfig)({ lastWordCount: this.currentWordCount });
+    }
+    /**
+     * 辅助方法：更新状态栏项显示
+     */
+    updateStatusBarItem(item, text) {
+        item.text = text;
+        item.show();
     }
     /** 销毁状态栏项 */
     dispose() {

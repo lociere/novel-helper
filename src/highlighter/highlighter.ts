@@ -329,7 +329,6 @@ export class Highlighter {
     const text = document.getText();
     const ranges: vscode.Range[] = [];
 
-    // 匹配所有高亮项
     Object.keys(this.highlightItems).forEach(item => {
       // 跳过空高亮项
       if (!item || item.trim() === '') {
@@ -337,55 +336,8 @@ export class Highlighter {
       }
 
       try {
-        const hi = this.highlightItems[item];
-
-        // 如果当前打开的文档就是高亮项的源文件，优先使用持久化的范围直接高亮该范围（避免因为格式差异导致匹配失败）
-        if (hi && hi.path && document.uri.fsPath === hi.path) {
-          try {
-            if (hi.range instanceof vscode.Range) {
-              ranges.push(hi.range);
-            } else {
-              // 如果是序列化对象则尝试转换
-              const r = hi.range as any;
-              const sr = new vscode.Range(new vscode.Position(r.start.line, r.start.character), new vscode.Position(r.end.line, r.end.character));
-              ranges.push(sr);
-            }
-          } catch (e) {
-            // 忽略单项转换错误
-          }
-        }
-
-        // 用于全局搜索的文本优先使用源文件范围内的实际文本（如果可用），否则使用 key
-        let searchText = item;
-        try {
-          if (hi && hi.path && document.uri.fsPath === hi.path && hi.range instanceof vscode.Range) {
-            const actual = document.getText(hi.range).trim();
-            if (actual) {searchText = actual;}
-          }
-        } catch (e) {
-          // ignore
-        }
-
-        // 从缓存获取正则，无则创建并缓存（使用 searchText 作为缓存键）
-        let regex = this.regexCache.get(searchText);
-        if (!regex) {
-          const escapedItem = this.escapeRegExp(searchText);
-          // 使用全局匹配；大小写敏感保持现有行为
-          regex = new RegExp(escapedItem, 'g');
-          this.regexCache.set(searchText, regex);
-        }
-
-        let match;
-        regex.lastIndex = 0;
-        while ((match = regex.exec(text)) !== null) {
-          const startPos = document.positionAt(match.index);
-          const endPos = document.positionAt(match.index + match[0].length);
-
-          const newRange = new vscode.Range(startPos, endPos);
-          // 避免重复添加与已存在的持久化范围重复
-          const dup = ranges.some(r => r.start.isEqual(newRange.start) && r.end.isEqual(newRange.end));
-          if (!dup) {ranges.push(newRange);}
-        }
+        const itemRanges = this.calculateItemRanges(item, document, text);
+        this.mergeRanges(ranges, itemRanges);
       } catch (error) {
         console.error(`[Novel Helper] 高亮匹配失败 - 项：${item}`, error);
         // 移除错误的高亮项，避免持续报错
@@ -396,6 +348,90 @@ export class Highlighter {
 
     // 应用装饰器
     editor.setDecorations(this.decorations.highlight, ranges);
+  }
+
+  /**
+   * 计算单个高亮项的所有匹配范围
+   */
+  private calculateItemRanges(itemKey: string, document: vscode.TextDocument, fullText: string): vscode.Range[] {
+    const ranges: vscode.Range[] = [];
+    const hi = this.highlightItems[itemKey];
+    
+    // 1. 如果当前文档就是源文件，优先使用持久化的范围
+    if (hi && hi.path && document.uri.fsPath === hi.path) {
+      const sourceRange = this.getPersistedRange(hi.range);
+      if (sourceRange) {
+        ranges.push(sourceRange);
+      }
+    }
+
+    // 2. 确定搜索用的文本关键字
+    let searchText = itemKey;
+    // 如果能从源文件读取到最新文本，优先使用
+    if (hi && hi.path && document.uri.fsPath === hi.path && hi.range instanceof vscode.Range) {
+      try {
+        const actual = document.getText(hi.range).trim();
+        if (actual) { searchText = actual; }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // 3. 正则全局匹配
+    const regex = this.getOrUpdateRegex(searchText);
+    let match;
+    regex.lastIndex = 0;
+    while ((match = regex.exec(fullText)) !== null) {
+      const startPos = document.positionAt(match.index);
+      const endPos = document.positionAt(match.index + match[0].length);
+      const newRange = new vscode.Range(startPos, endPos);
+      
+      ranges.push(newRange);
+    }
+
+    return ranges;
+  }
+
+  /**
+   * 将新范围合并到结果列表（简单的去重）
+   */
+  private mergeRanges(target: vscode.Range[], source: vscode.Range[]): void {
+    source.forEach(newRange => {
+      const isDuplicate = target.some(r => r.start.isEqual(newRange.start) && r.end.isEqual(newRange.end));
+      if (!isDuplicate) {
+        target.push(newRange);
+      }
+    });
+  }
+
+  /**
+   * 获取或转换持久化的 Range 对象
+   */
+  private getPersistedRange(range: any): vscode.Range | null {
+    try {
+      if (range instanceof vscode.Range) {
+        return range;
+      }
+      return new vscode.Range(
+        new vscode.Position(range.start.line, range.start.character),
+        new vscode.Position(range.end.line, range.end.character)
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 获取或创建正则表达式（带缓存）
+   */
+  private getOrUpdateRegex(text: string): RegExp {
+    let regex = this.regexCache.get(text);
+    if (!regex) {
+      const escapedItem = this.escapeRegExp(text);
+      regex = new RegExp(escapedItem, 'g');
+      this.regexCache.set(text, regex);
+    }
+    return regex;
   }
 
   /**
