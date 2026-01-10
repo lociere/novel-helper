@@ -72,15 +72,3 @@ VSCode小说创作辅助插件，提供目录管理、文本高亮、字数统�
 | `novel-helper.lineSpacing` | 行间空行数 | 1 |
 | `novel-helper.highlightColor` | 高亮文本背景色 | #FFD700 |
 | `novel-helper.highlightTextColor` | 高亮文本颜色 | #000000 |
-
-## 命令列表
-
-| 命令 | 说明 |
-|------|------|
-| `Novel Helper: 初始化小说工作区` | 初始化小说创作目录结构 |
-| `Novel Helper: 创建小说项` | 创建大纲、设定、章节等（树视图触发） |
-| `Novel Helper: 格式化文档` | 格式化当前文档，应用排版规则 |
-| `Novel Helper: 打开配置面板` | 打开插件配置面板 |
-| `Novel Helper: 显示创作统计` | 查看创作统计信息 |
-
-## 项目结构
