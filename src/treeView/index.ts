@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import { NovelTreeDataProvider } from './novelTreeDataProvider';
 
+// 超大文件字数统计保护阈值（字符数），超过则仅在保存时刷新
+const LARGE_FILE_CHAR_THRESHOLD = 500_000;
+
 /**
  * 注册小说树视图
  * @param context 扩展上下文
@@ -27,12 +30,17 @@ export const registerTreeView = (context: vscode.ExtensionContext): void => {
   // 监听内容变化（防抖刷新，用于实时更新字数）
   let debounceTimer: NodeJS.Timeout;
   context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
-    // 仅关注相关文本文件
+    // 仅关注相关文本文件，且树视图可见时再刷新，降低不必要的开销
+    if (!treeView.visible) { return; }
     if (e.document.uri.scheme === 'file' && (e.document.fileName.endsWith('.txt') || e.document.fileName.endsWith('.md'))) {
+      const textLength = e.document.getText().length;
+      // 超大文件：仅在保存时刷新，避免频繁遍历影响性能
+      if (textLength > LARGE_FILE_CHAR_THRESHOLD) { return; }
+
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         treeDataProvider.refresh();
-      }, 2000); // 设置2秒延迟，尽量减少对输入的干扰
+      }, 500); // 缩短至 500ms，提升“几乎实时”的体验
     }
   }));
 };
