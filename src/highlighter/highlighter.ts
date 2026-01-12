@@ -17,8 +17,9 @@ export class Highlighter {
     this.decorations = {
       highlight: vscode.window.createTextEditorDecorationType({
         isWholeLine: false,
-        // 仅修改文字颜色，不改变背景
-        color: initialColor
+        // 仅修改文字颜色，不改变背景，移除下划线
+        color: initialColor,
+        textDecoration: 'none'
       })
     };
 
@@ -50,6 +51,8 @@ export class Highlighter {
     this.registerCommands(context);
     // 监听文本变化更新高亮
     this.registerEventListeners(context);
+    // 注册定义提供器，支持 Ctrl+点击跳转
+    this.registerDefinitionProvider(context);
   }
 
   /**
@@ -315,6 +318,42 @@ export class Highlighter {
   }
 
   /**
+   * 注册定义提供器：支持 Ctrl+点击高亮文本跳转到源位置
+   */
+  private registerDefinitionProvider(context: vscode.ExtensionContext): void {
+    const provider = vscode.languages.registerDefinitionProvider({ scheme: 'file' }, {
+      provideDefinition: (document, position) => {
+        const fullText = document.getText();
+
+        for (const key of Object.keys(this.highlightItems)) {
+          const hi = this.highlightItems[key];
+          if (!hi || !hi.path) { continue; }
+
+          const ranges = this.calculateItemRanges(key, document, fullText);
+          const hit = ranges.find(r => r.contains(position));
+          if (!hit) { continue; }
+
+          const targetRange = this.getPersistedRange(hi.range) || hit;
+          const targetUri = vscode.Uri.file(hi.path);
+
+          const link: vscode.DefinitionLink = {
+            originSelectionRange: hit,
+            targetUri,
+            targetRange
+          };
+
+          return [link];
+        }
+
+        return [];
+      }
+    });
+
+    context.subscriptions.push(provider);
+    this.disposables.push(provider);
+  }
+
+  /**
    * 转义正则特殊字符（避免正则语法错误）
    * @param str 原始字符串
    * @returns 转义后的字符串
@@ -343,7 +382,7 @@ export class Highlighter {
 
     const document = editor.document;
     const text = document.getText();
-    const ranges: vscode.Range[] = [];
+    const decorations: vscode.DecorationOptions[] = [];
 
     Object.keys(this.highlightItems).forEach(item => {
       // 跳过空高亮项
@@ -353,7 +392,7 @@ export class Highlighter {
 
       try {
         const itemRanges = this.calculateItemRanges(item, document, text);
-        this.mergeRanges(ranges, itemRanges);
+        this.mergeRanges(decorations, itemRanges);
       } catch (error) {
         console.error(`[Novel Helper] 高亮匹配失败 - 项：${item}`, error);
         // 移除错误的高亮项，避免持续报错
@@ -363,7 +402,7 @@ export class Highlighter {
     });
 
     // 应用装饰器
-    editor.setDecorations(this.decorations.highlight, ranges);
+    editor.setDecorations(this.decorations.highlight, decorations);
   }
 
   /**
@@ -411,12 +450,17 @@ export class Highlighter {
   /**
    * 将新范围合并到结果列表（简单的去重）
    */
-  private mergeRanges(target: vscode.Range[], source: vscode.Range[]): void {
+  private mergeRanges(target: vscode.DecorationOptions[], source: vscode.Range[]): void {
+    const hover = new vscode.MarkdownString('按住 Ctrl 点击跳转到源位置');
+    hover.isTrusted = false;
+
     source.forEach(newRange => {
-      const isDuplicate = target.some(r => r.start.isEqual(newRange.start) && r.end.isEqual(newRange.end));
-      if (!isDuplicate) {
-        target.push(newRange);
-      }
+      const exists = target.some(opt => opt.range.start.isEqual(newRange.start) && opt.range.end.isEqual(newRange.end));
+      if (exists) { return; }
+      target.push({
+        range: newRange,
+        hoverMessage: hover
+      });
     });
   }
 
@@ -459,7 +503,8 @@ export class Highlighter {
     const color = cfg.highlightColor || '#FFD700';
     this.decorations.highlight = vscode.window.createTextEditorDecorationType({
       isWholeLine: false,
-      color
+      color,
+      textDecoration: 'none'
     });
   }
 
