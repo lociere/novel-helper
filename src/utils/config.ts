@@ -25,6 +25,16 @@ export interface NovelHelperConfig {
   fontSize: number;
   highlightColor: string;
   /**
+   * 是否在“格式化文档”时进行硬换行（插入真实换行符）。
+   * 默认关闭，避免改变既有行为。
+   */
+  hardWrapOnFormat: boolean;
+  /**
+   * 自动硬换行阈值（字符数）。
+   * 0 表示关闭。
+   */
+  autoHardWrapColumn: number;
+  /**
    * highlightItems 的值采用可序列化的范围表示，便于写入配置文件
    */
   highlightItems: { [key: string]: HighlightItem };
@@ -40,6 +50,8 @@ const defaultConfig: NovelHelperConfig = {
   lineSpacing: 1,
   fontSize: 14,
   highlightColor: '#FFD700',
+  hardWrapOnFormat: false,
+  autoHardWrapColumn: 0,
   highlightItems: {},
   editStartTime: 0,
   totalEditTime: 0,
@@ -141,7 +153,9 @@ export const getVSCodeConfig = (): NovelHelperConfig => {
     paragraphIndent: config.get('paragraphIndent', 2),
     lineSpacing: config.get('lineSpacing', 1),
     fontSize: config.get('fontSize', 14),
-    highlightColor: config.get('highlightColor', '#FFD700')
+    highlightColor: config.get('highlightColor', '#FFD700'),
+    hardWrapOnFormat: config.get('hardWrapOnFormat', false),
+    autoHardWrapColumn: config.get('autoHardWrapColumn', 0)
   };
 };
 

@@ -1,6 +1,15 @@
 import * as vscode from 'vscode';
 import { initWorkspace } from './initWorkspace';
 import { createItem, CreateItemType } from './createItems';
+import { getVSCodeConfig } from '../utils/config';
+import { formatText } from '../formatter/formatter';
+
+const SUPPORTED_FORMAT_LANGS = new Set(['plaintext', 'markdown']);
+
+const canFormatByNovelHelper = (doc: vscode.TextDocument): boolean => {
+  if (doc.uri.scheme !== 'file') { return false; }
+  return SUPPORTED_FORMAT_LANGS.has(doc.languageId);
+};
 
 /**
  * 将命令执行包装，自动捕获同步或异步错误并显示友好提示
@@ -44,7 +53,30 @@ export const registerCommands = (context: vscode.ExtensionContext): void => {
         vscode.window.showErrorMessage('未打开编辑器');
         return;
       }
-      await vscode.commands.executeCommand('editor.action.formatDocument');
+
+      const document = editor.document;
+      if (!canFormatByNovelHelper(document)) {
+        vscode.window.showWarningMessage('当前文件类型不支持 Novel Helper 格式化（仅支持 txt/plaintext 与 markdown）');
+        return;
+      }
+
+      const cfg = getVSCodeConfig();
+      const original = document.getText();
+      const next = formatText(original, {
+        paragraphIndent: cfg.paragraphIndent,
+        lineSpacing: cfg.lineSpacing,
+        hardWrapOnFormat: cfg.hardWrapOnFormat,
+        autoHardWrapColumn: cfg.autoHardWrapColumn
+      });
+
+      const fullRange = new vscode.Range(
+        document.positionAt(0),
+        document.positionAt(original.length)
+      );
+
+      await editor.edit(editBuilder => {
+        editBuilder.replace(fullRange, next);
+      });
     }],
     ['novel-helper.openConfigPanel', () => vscode.commands.executeCommand('novel-helper.showConfigPanel')]
   ];

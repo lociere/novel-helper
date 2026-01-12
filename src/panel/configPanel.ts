@@ -5,7 +5,7 @@ import { getVSCodeConfig, writeConfig, NovelHelperConfig } from '../utils/config
 interface ConfigItem {
   label: string;
   description: string;
-  type: 'number' | 'string';
+  type: 'number' | 'string' | 'boolean';
   key: keyof NovelHelperConfig; // 修复：指定 key 类型为 NovelHelperConfig 的键
 }
 
@@ -51,6 +51,18 @@ export const openConfigPanel = async (): Promise<void> => {
       description: `当前值: ${config.highlightColor}`,
       type: 'string',
       key: 'highlightColor' // 现在类型匹配
+    },
+    {
+      label: '格式化时硬换行',
+      description: `当前值: ${config.hardWrapOnFormat ? '开启' : '关闭'}`,
+      type: 'boolean',
+      key: 'hardWrapOnFormat'
+    },
+    {
+      label: '自动硬换行阈值',
+      description: `当前值: ${config.autoHardWrapColumn} (0 表示关闭)`,
+      type: 'number',
+      key: 'autoHardWrapColumn'
     }
   ];
 
@@ -69,6 +81,8 @@ export const openConfigPanel = async (): Promise<void> => {
 
     if (selected.key === 'highlightColor') {
       await handleHighlightColorPick(selected);
+    } else if (selected.type === 'boolean') {
+      await handleBooleanPick(selected);
     } else {
       await handleGeneralInput(selected);
     }
@@ -78,6 +92,22 @@ export const openConfigPanel = async (): Promise<void> => {
 
   quickPick.onDidHide(() => quickPick.dispose());
   quickPick.show();
+};
+
+const handleBooleanPick = async (selected: ConfigItem): Promise<void> => {
+  const pick = await vscode.window.showQuickPick(
+    [
+      { label: '开启', value: true },
+      { label: '关闭', value: false }
+    ],
+    {
+      title: selected.label,
+      placeHolder: '选择开启或关闭'
+    }
+  );
+
+  if (!pick) { return; }
+  applyConfigUpdate(selected, pick.value);
 };
 
 const handleHighlightColorPick = async (selected: ConfigItem): Promise<void> => {
@@ -134,7 +164,7 @@ const handleGeneralInput = async (selected: ConfigItem): Promise<void> => {
   }
 };
 
-const applyConfigUpdate = (selected: ConfigItem, value: string | number): void => {
+const applyConfigUpdate = (selected: ConfigItem, value: string | number | boolean): void => {
   writeConfig({ [selected.key]: value });
   vscode.workspace.getConfiguration('novel-helper').update(selected.key, value, vscode.ConfigurationTarget.Workspace);
   vscode.window.showInformationMessage(`${selected.label}已更新为: ${value}`);
