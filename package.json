@@ -106,22 +106,22 @@
         "novel-helper.paragraphIndent": {
           "type": "number",
           "default": 2,
-          "description": "段首缩进空格数"
+          "description": "段首缩进空格数（格式化时使用）"
         },
         "novel-helper.lineSpacing": {
           "type": "number",
           "default": 1,
-          "description": "行间空行数"
+          "description": "段落间空行数（0 表示仅换行；1 表示空一行）"
         },
         "novel-helper.fontSize": {
           "type": "number",
           "default": 14,
-          "description": "编辑器字号大小"
+          "description": "字号大小（通过配置面板修改时会同步更新 editor.fontSize 全局设置）"
         },
         "novel-helper.highlightColor": {
           "type": "string",
           "default": "#FFD700",
-          "description": "高亮文本颜色"
+          "description": "高亮文本颜色（仅改变文字颜色，不改变背景/不加下划线）"
         }
       }
     }
