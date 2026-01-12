@@ -38,8 +38,7 @@ export const initWorkspace = async (): Promise<void> => {
 
   // 更新工作区设置：隐藏无关文件以减少其他插件干扰
   const config = vscode.workspace.getConfiguration();
-  await config.update('files.exclude', {
-    ...config.get('files.exclude'),
+  const excludes: Record<string, boolean> = {
     '**/*.js': true,
     '**/*.ts': true,
     '**/*.jsx': true,
@@ -59,7 +58,10 @@ export const initWorkspace = async (): Promise<void> => {
     '.git': true,
     '.svn': true,
     '.hg': true
-  }, vscode.ConfigurationTarget.Workspace);
+  };
+
+  const currentExcludes = config.get<Record<string, boolean>>('files.exclude') || {};
+  await config.update('files.exclude', { ...currentExcludes, ...excludes }, vscode.ConfigurationTarget.Workspace);
 
   vscode.window.showInformationMessage('小说工作区初始化成功！已自动屏蔽代码文件。');
 

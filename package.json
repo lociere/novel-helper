@@ -10,8 +10,6 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:novel-helper.initWorkspace",
-    "onView:novelTreeView",
     "workspaceContains:.novel-helper.json"
   ],
   "main": "./out/extension.js",

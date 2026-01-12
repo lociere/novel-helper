@@ -18,6 +18,7 @@ export class StatsManager {
   private loadStats(): void {
     const config = readConfig();
     this.totalEditTime = config.totalEditTime || 0;
+    this.totalWordCount = config.lastWordCount || 0;
   }
 
   /** 开始监听 */
@@ -61,6 +62,10 @@ export class StatsManager {
 
   // 新增：实现 dispose 方法
   public dispose(): void {
-    this.statsCommandDisposable.dispose();
+    try {
+      this.statsCommandDisposable.dispose();
+    } catch {
+      // ignore
+    }
   }
 }

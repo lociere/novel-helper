@@ -43,11 +43,13 @@ export class NovelTreeItem extends vscode.TreeItem {
         break;
       case 'file':
         this.iconPath = vscode.ThemeIcon.File;
-        this.command = {
-          command: 'vscode.open',
-          title: '打开文件',
-          arguments: [resourceUri]
-        };
+        if (resourceUri) {
+          this.command = {
+            command: 'vscode.open',
+            title: '打开文件',
+            arguments: [resourceUri]
+          };
+        }
         break;
       case 'create-item':
         // 使用加号图标使“新建”节点更明显

@@ -101,19 +101,21 @@ export const calculateWritingSpeed = (words: number, ms: number): number => {
  * 判断当前工作区是否为已初始化的小说工作区（存在关键目录）
  */
 export const isNovelWorkspace = (): boolean => {
-  // 优先检查配置文件中保存的 workspacePath，兼容用户在初始化时指定的目录
-  try {
-    const cfg = readConfig();
-    const cfgRoot = cfg && cfg.workspacePath && fs.existsSync(cfg.workspacePath) ? cfg.workspacePath : undefined;
-    const root = cfgRoot || getWorkspaceRoot();
-    if (!root) {return false;}
-    const requiredDirs = ['大纲', '设定', '素材', '正文'];
-    return requiredDirs.every(d => fs.existsSync(path.join(root, d)));
-  } catch {
-    // 若读取配置失败，则退化到基于工作区的判断
-    const root = getWorkspaceRoot();
-    if (!root) {return false;}
-    const requiredDirs = ['大纲', '设定', '素材', '正文'];
-    return requiredDirs.every(d => fs.existsSync(path.join(root, d)));
-  }
+  const requiredDirs = ['大纲', '设定', '素材', '正文'];
+
+  const resolveRoot = (): string | undefined => {
+    try {
+      const cfg = readConfig();
+      if (cfg && cfg.workspacePath && fs.existsSync(cfg.workspacePath)) {
+        return cfg.workspacePath;
+      }
+    } catch {
+      // 忽略配置读取错误，回退到 workspaceFolders
+    }
+    return getWorkspaceRoot();
+  };
+
+  const root = resolveRoot();
+  if (!root) { return false; }
+  return requiredDirs.every(d => fs.existsSync(path.join(root, d)));
 };

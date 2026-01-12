@@ -2,40 +2,46 @@ import * as vscode from 'vscode';
 import { getVSCodeConfig, readConfig, writeConfig } from '../utils/config';
 import { countWords, formatTime, calculateWritingSpeed, getCurrentTimestamp } from '../utils/helpers';
 
+type StatusBarKey = 'wordCount' | 'format' | 'speed' | 'time';
+type StatusBarItems = Record<StatusBarKey, vscode.StatusBarItem>;
+
 /** 状态栏管理器 */
 export class StatusBarManager {
-  private statusBarItems: { [key: string]: vscode.StatusBarItem } = {};
+  private statusBarItems!: StatusBarItems;
   private currentWordCount = 0;
   private editStartTime = 0;
+
+  private disposables: vscode.Disposable[] = [];
 
   constructor(private context: vscode.ExtensionContext) {
     this.initStatusBarItems();
     this.startListening();
   }
 
-  /** 初始化状态栏项 */
-  private disposables: vscode.Disposable[] = [];
-
   private initStatusBarItems(): void {
+    const items = {} as StatusBarItems;
+
     // 字数统计
-    this.statusBarItems.wordCount = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    this.statusBarItems.wordCount.command = 'novel-helper.openConfigPanel';
-    this.statusBarItems.wordCount.tooltip = '点击打开配置面板';
+    items.wordCount = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    items.wordCount.command = 'novel-helper.openConfigPanel';
+    items.wordCount.tooltip = '点击打开配置面板';
 
     // 排版设置
-    this.statusBarItems.format = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
-    this.statusBarItems.format.command = 'novel-helper.openConfigPanel';
-    this.statusBarItems.format.tooltip = '点击打开配置面板';
+    items.format = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+    items.format.command = 'novel-helper.openConfigPanel';
+    items.format.tooltip = '点击打开配置面板';
 
     // 码字速度
-    this.statusBarItems.speed = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
-    this.statusBarItems.speed.command = 'novel-helper.openConfigPanel';
-    this.statusBarItems.speed.tooltip = '点击打开配置面板';
+    items.speed = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
+    items.speed.command = 'novel-helper.openConfigPanel';
+    items.speed.tooltip = '点击打开配置面板';
 
     // 码字时间
-    this.statusBarItems.time = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 97);
-    this.statusBarItems.time.command = 'novel-helper.openConfigPanel';
-    this.statusBarItems.time.tooltip = '点击打开配置面板';
+    items.time = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 97);
+    items.time.command = 'novel-helper.openConfigPanel';
+    items.time.tooltip = '点击打开配置面板';
+
+    this.statusBarItems = items;
 
     // 注册到上下文
     Object.values(this.statusBarItems).forEach(item => {

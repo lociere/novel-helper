@@ -6,6 +6,8 @@ import { getWorkspaceRoot, isNovelWorkspace, countWords } from '../utils/helpers
 import { getDirFiles } from '../utils/fileSystem';
 import { CONFIG_FILE_NAME, getConfigFilePath } from '../utils/config';
 
+const TEXT_EXTS = ['.txt', '.md'];
+
 /** 小说树数据提供器 */
 export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<NovelTreeItem | undefined | null | void> = new vscode.EventEmitter<NovelTreeItem | undefined | null | void>();
@@ -53,12 +55,7 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
 
       const children = this.getDirectoryContent(dirPath);
       this.appendCreateButtons(children, dirPath, root);
-      
-      // 过滤掉配置文件
-      return children.filter(c => {
-        const lbl = typeof c.label === 'string' ? c.label : c.label?.toString();
-        return lbl !== CONFIG_FILE_NAME;
-      });
+      return children;
     }
 
     return [];
@@ -113,21 +110,17 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
     const folders: string[] = [];
     const files: string[] = [];
 
-    allFiles.forEach(f => {
-      // 忽略配置文件
-      if (f === CONFIG_FILE_NAME) { return; }
-      const full = path.join(dirPath, f);
-      if (full === configFullPath) { return; }
+    allFiles.forEach(fileName => {
+      if (this.isConfigFile(fileName, dirPath, configFullPath)) { return; }
 
-      try {
-        const stat = fs.statSync(full);
-        if (stat.isDirectory()) {
-          folders.push(f);
-        } else {
-          files.push(f);
-        }
-      } catch {
-        // ignore
+      const fullPath = path.join(dirPath, fileName);
+      const stat = this.safeStat(fullPath);
+      if (!stat) { return; }
+
+      if (stat.isDirectory()) {
+        folders.push(fileName);
+      } else {
+        files.push(fileName);
       }
     });
 
@@ -151,24 +144,47 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
         vscode.Uri.file(filePath)
       );
 
-      // 计算并显示文本文件的字数
-      if (f.endsWith('.txt') || f.endsWith('.md')) {
-        try {
-          // 优先读取已打开的文档内容（包含未保存变更），否则读取磁盘文件
-          const openDoc = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === filePath);
-          const content = openDoc ? openDoc.getText() : fs.readFileSync(filePath, 'utf-8');
-          
-          const count = countWords(content);
-          item.description = `${count}字`;
-        } catch {
-          // ignore
-        }
+      if (this.isTextFile(f)) {
+        this.attachWordCount(item, filePath);
       }
 
       children.push(item);
     });
 
     return children;
+  }
+
+  private isTextFile(fileName: string): boolean {
+    return TEXT_EXTS.some(ext => fileName.endsWith(ext));
+  }
+
+  private attachWordCount(item: NovelTreeItem, filePath: string): void {
+    const content = this.safeReadText(filePath);
+    if (content === undefined) { return; }
+    const count = countWords(content);
+    item.description = `${count}字`;
+  }
+
+  private isConfigFile(fileName: string, dirPath: string, configFullPath: string): boolean {
+    if (fileName === CONFIG_FILE_NAME) { return true; }
+    return path.join(dirPath, fileName) === configFullPath;
+  }
+
+  private safeStat(fullPath: string): fs.Stats | undefined {
+    try {
+      return fs.statSync(fullPath);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private safeReadText(filePath: string): string | undefined {
+    try {
+      const openDoc = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === filePath);
+      return openDoc ? openDoc.getText() : fs.readFileSync(filePath, 'utf-8');
+    } catch {
+      return undefined;
+    }
   }
 
   /**

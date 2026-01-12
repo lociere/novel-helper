@@ -49,26 +49,29 @@ const defaultConfig: NovelHelperConfig = {
 /**
  * 兼容旧配置：将 highlightTextColor 迁移到 highlightColor，并移除冗余字段
  */
-const sanitizeConfig = (raw: any): { config: NovelHelperConfig; changed: boolean } => {
+const sanitizeConfig = (raw: unknown): { config: NovelHelperConfig; changed: boolean } => {
   let changed = false;
-  const cfg: any = { ...defaultConfig, ...(raw || {}) };
+  const rawObj = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : undefined;
+  const cfg: NovelHelperConfig = { ...defaultConfig, ...((rawObj || {}) as Partial<NovelHelperConfig>) };
 
-  if (raw && typeof raw === 'object') {
+  if (rawObj) {
     // 如果旧配置存在 highlightTextColor，而 highlightColor 未自定义，则迁移值
-    if ((raw as any).highlightTextColor) {
-      if (!(raw as any).highlightColor || (raw as any).highlightColor === defaultConfig.highlightColor) {
-        cfg.highlightColor = (raw as any).highlightTextColor;
+    const oldHighlightTextColor = rawObj['highlightTextColor'];
+    const newHighlightColor = rawObj['highlightColor'];
+    if (typeof oldHighlightTextColor === 'string') {
+      if (typeof newHighlightColor !== 'string' || newHighlightColor === defaultConfig.highlightColor) {
+        cfg.highlightColor = oldHighlightTextColor;
       }
       changed = true;
     }
   }
 
-  if ('highlightTextColor' in cfg) {
-    delete cfg.highlightTextColor;
+  if ('highlightTextColor' in (cfg as any)) {
+    delete (cfg as any).highlightTextColor;
     changed = true;
   }
 
-  return { config: cfg as NovelHelperConfig, changed };
+  return { config: cfg, changed };
 };
 
 /** 配置文件名称 */
@@ -148,7 +151,7 @@ export const getVSCodeConfig = (): NovelHelperConfig => {
 export const hideConfigFileInExplorer = (): void => {
   try {
     const workspaceConfig = vscode.workspace.getConfiguration('files');
-    const exclude = workspaceConfig.get<any>('exclude') || {};
+    const exclude = workspaceConfig.get<Record<string, boolean>>('exclude') || {};
     let changed = false;
     if (!exclude[CONFIG_FILE_NAME]) {
       exclude[CONFIG_FILE_NAME] = true;

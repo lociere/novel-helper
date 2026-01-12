@@ -1,5 +1,10 @@
 import * as vscode from 'vscode';
-import { readConfig, writeConfig } from '../utils/config';
+import { readConfig, type NovelHelperConfig } from '../utils/config';
+import { getHighlightItems, removeHighlightItem, upsertHighlightItem } from './highlightStore';
+
+const HIGHLIGHT_MAX_DOC_CHARS = 1_000_000;
+const HIGHLIGHT_MAX_MATCHES_PER_ITEM = 2_000;
+const HIGHLIGHT_MAX_KEY_LENGTH = 200;
 
 /**
  * 文本高亮管理器（优化版：性能提升+错误处理）
@@ -12,7 +17,7 @@ export class Highlighter {
   private disposables: vscode.Disposable[] = [];
 
   constructor(context: vscode.ExtensionContext) {
-    const cfg = readConfig();
+    const cfg = this.readHighlightConfig();
     const initialColor = cfg.highlightColor || '#FFD700';
     this.decorations = {
       highlight: vscode.window.createTextEditorDecorationType({
@@ -26,9 +31,18 @@ export class Highlighter {
     this.highlightItems = {};
     this.regexCache = new Map<string, RegExp>(); // 初始化正则缓存
 
-    // 从配置中加载持久化的高亮
+    this.loadPersistedHighlights(cfg);
+
+    // 注册高亮相关命令
+    this.registerCommands(context);
+    // 监听文本变化更新高亮
+    this.registerEventListeners(context);
+    // 注册定义提供器，支持 Ctrl+点击跳转
+    this.registerDefinitionProvider(context);
+  }
+
+  private loadPersistedHighlights(cfg: NovelHelperConfig): void {
     try {
-      const cfg = readConfig();
       const items = cfg.highlightItems || {};
       Object.keys(items).forEach(key => {
         const v = items[key];
@@ -39,20 +53,20 @@ export class Highlighter {
           );
           this.highlightItems[key] = { path: v.path, range };
         } catch (e) {
-          // 忽略解析错误
           console.warn('[Novel Helper] 解析高亮位置失败：', key, e);
         }
       });
     } catch (e) {
       console.warn('[Novel Helper] 读取高亮配置失败：', e);
     }
+  }
 
-    // 注册高亮相关命令
-    this.registerCommands(context);
-    // 监听文本变化更新高亮
-    this.registerEventListeners(context);
-    // 注册定义提供器，支持 Ctrl+点击跳转
-    this.registerDefinitionProvider(context);
+  private readHighlightConfig(): NovelHelperConfig {
+    return readConfig();
+  }
+
+  private getHighlightItemsFromConfig(): NovelHelperConfig['highlightItems'] {
+    return getHighlightItems();
   }
 
   /**
@@ -79,21 +93,7 @@ export class Highlighter {
         return;
       }
 
-      // 序列化范围并写入配置，确保关闭后重开依然生效
-      const serialRange = {
-        start: { line: selection.start.line, character: selection.start.character },
-        end: { line: selection.end.line, character: selection.end.character }
-      };
-      const cfg = readConfig();
-      const newItems = { ...(cfg.highlightItems || {}), [text]: { path: editor.document.uri.fsPath, range: serialRange } };
-      writeConfig({ highlightItems: newItems });
-
-      this.highlightItems[text] = {
-        path: editor.document.uri.fsPath,
-        range: selection
-      };
-      this.updateHighlights();
-      vscode.window.showInformationMessage(`已添加高亮项：${text}`);
+      this.persistHighlightItem(text, selection, editor.document.uri.fsPath, `已添加高亮项：${text}`);
     });
 
     context.subscriptions.push(addHighlightDisposable);
@@ -118,28 +118,14 @@ export class Highlighter {
         return;
       }
 
-      // 序列化范围并写入配置
-      const serialRange = {
-        start: { line: selection.start.line, character: selection.start.character },
-        end: { line: selection.end.line, character: selection.end.character }
-      };
-
-      const cfg = readConfig();
-      const newItems = { ...(cfg.highlightItems || {}), [text]: { path: editor.document.uri.fsPath, range: serialRange } };
-      writeConfig({ highlightItems: newItems });
-
-      // 更新内存并刷新高亮
-      this.highlightItems[text] = { path: editor.document.uri.fsPath, range: selection };
-      this.updateHighlights();
-      vscode.window.showInformationMessage(`已为“${text}”添加高亮并保存到设定`);
+      this.persistHighlightItem(text, selection, editor.document.uri.fsPath, `已为“${text}”添加高亮并保存到设定`);
     });
 
     context.subscriptions.push(addFromSettingDisposable);
 
     // 跳转到高亮源文件
-    const jumpDisposable = vscode.commands.registerCommand('novel-helper.jumpToHighlightSource', async (arg?: any) => {
-      const cfg = readConfig();
-      const items = cfg.highlightItems || {};
+    const jumpDisposable = vscode.commands.registerCommand('novel-helper.jumpToHighlightSource', async (arg?: unknown) => {
+      const items = this.getHighlightItemsFromConfig();
       const keys = Object.keys(items);
       
       if (keys.length === 0) {
@@ -206,9 +192,8 @@ export class Highlighter {
     context.subscriptions.push(jumpDisposable);
 
     // 移除高亮
-    const removeDisposable = vscode.commands.registerCommand('novel-helper.removeHighlight', async (arg?: any) => {
-      const cfg = readConfig();
-      const items = cfg.highlightItems || {};
+    const removeDisposable = vscode.commands.registerCommand('novel-helper.removeHighlight', async (arg?: unknown) => {
+      const items = this.getHighlightItemsFromConfig();
       const keys = Object.keys(items);
 
       if (keys.length === 0) {
@@ -249,8 +234,7 @@ export class Highlighter {
       if (!selectedKey) { return; }
 
       // 执行删除
-      delete items[selectedKey];
-      writeConfig({ highlightItems: items });
+      removeHighlightItem(selectedKey);
 
       // 更新内存
       delete this.highlightItems[selectedKey];
@@ -261,6 +245,24 @@ export class Highlighter {
     });
 
     context.subscriptions.push(removeDisposable);
+  }
+
+  private persistHighlightItem(text: string, selection: vscode.Selection, docPath: string, infoMessage: string): void {
+    if (text.length > HIGHLIGHT_MAX_KEY_LENGTH) {
+      vscode.window.showWarningMessage(`高亮文本过长（>${HIGHLIGHT_MAX_KEY_LENGTH}），请缩短后再添加`);
+      return;
+    }
+
+    const serialRange = {
+      start: { line: selection.start.line, character: selection.start.character },
+      end: { line: selection.end.line, character: selection.end.character }
+    };
+
+    upsertHighlightItem(text, { path: docPath, range: serialRange });
+
+    this.highlightItems[text] = { path: docPath, range: selection };
+    this.updateHighlights();
+    vscode.window.showInformationMessage(infoMessage);
   }
 
   /**
@@ -411,6 +413,18 @@ export class Highlighter {
   private calculateItemRanges(itemKey: string, document: vscode.TextDocument, fullText: string): vscode.Range[] {
     const ranges: vscode.Range[] = [];
     const hi = this.highlightItems[itemKey];
+
+    // 超大文档保护：避免对极长文本做全量正则扫描
+    // 仍保留：当当前文档是源文件时，使用持久化范围显示高亮。
+    if (fullText.length > HIGHLIGHT_MAX_DOC_CHARS) {
+      if (hi && hi.path && document.uri.fsPath === hi.path) {
+        const sourceRange = this.getPersistedRange(hi.range);
+        if (sourceRange) {
+          ranges.push(sourceRange);
+        }
+      }
+      return ranges;
+    }
     
     // 1. 如果当前文档就是源文件，优先使用持久化的范围
     if (hi && hi.path && document.uri.fsPath === hi.path) {
@@ -436,12 +450,18 @@ export class Highlighter {
     const regex = this.getOrUpdateRegex(searchText);
     let match;
     regex.lastIndex = 0;
+    let matchCount = 0;
     while ((match = regex.exec(fullText)) !== null) {
       const startPos = document.positionAt(match.index);
       const endPos = document.positionAt(match.index + match[0].length);
       const newRange = new vscode.Range(startPos, endPos);
       
       ranges.push(newRange);
+
+      matchCount += 1;
+      if (matchCount >= HIGHLIGHT_MAX_MATCHES_PER_ITEM) {
+        break;
+      }
     }
 
     return ranges;
@@ -467,14 +487,15 @@ export class Highlighter {
   /**
    * 获取或转换持久化的 Range 对象
    */
-  private getPersistedRange(range: any): vscode.Range | null {
+  private getPersistedRange(range: unknown): vscode.Range | null {
     try {
       if (range instanceof vscode.Range) {
         return range;
       }
+      const r = range as { start: { line: number; character: number }; end: { line: number; character: number } };
       return new vscode.Range(
-        new vscode.Position(range.start.line, range.start.character),
-        new vscode.Position(range.end.line, range.end.character)
+        new vscode.Position(r.start.line, r.start.character),
+        new vscode.Position(r.end.line, r.end.character)
       );
     } catch {
       return null;
