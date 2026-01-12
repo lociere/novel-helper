@@ -1,5 +1,7 @@
 # Novel Helper
 
+自用插件，使用可自行打包
+
 VSCode小说创作辅助插件，提供目录管理、文本高亮、字数统计、排版格式化等功能，助力小说创作效率提升。
 
 ## 功能特性
@@ -68,6 +70,7 @@ VSCode小说创作辅助插件，提供目录管理、文本高亮、字数统�
 |--------|------|--------|
 | `novel-helper.paragraphIndent` | 段首缩进空格数 | 2 |
 | `novel-helper.lineSpacing` | 行间空行数 | 1 |
+<<<<<<< HEAD
 | `novel-helper.highlightColor` | 高亮文本颜色 | #FFD700 |
 
 ## 命令列表
@@ -81,3 +84,7 @@ VSCode小说创作辅助插件，提供目录管理、文本高亮、字数统�
 | `Novel Helper: 显示创作统计` | 查看创作统计信息 |
 
 ## 项目结构
+=======
+| `novel-helper.highlightColor` | 高亮文本背景色 | #FFD700 |
+| `novel-helper.highlightTextColor` | 高亮文本颜色 | #000000 |
+>>>>>>> c98007dc17891819a2c03d68fdf145fbde58a383
