@@ -49,6 +49,27 @@ const defaultConfig = {
     totalEditTime: 0,
     lastWordCount: 0
 };
+/**
+ * 兼容旧配置：将 highlightTextColor 迁移到 highlightColor，并移除冗余字段
+ */
+const sanitizeConfig = (raw) => {
+    let changed = false;
+    const cfg = { ...defaultConfig, ...(raw || {}) };
+    if (raw && typeof raw === 'object') {
+        // 如果旧配置存在 highlightTextColor，而 highlightColor 未自定义，则迁移值
+        if (raw.highlightTextColor) {
+            if (!raw.highlightColor || raw.highlightColor === defaultConfig.highlightColor) {
+                cfg.highlightColor = raw.highlightTextColor;
+            }
+            changed = true;
+        }
+    }
+    if ('highlightTextColor' in cfg) {
+        delete cfg.highlightTextColor;
+        changed = true;
+    }
+    return { config: cfg, changed };
+};
 /** 配置文件名称 */
 exports.CONFIG_FILE_NAME = '.novel-helper.json';
 /**
@@ -73,7 +94,12 @@ const readConfig = () => {
     }
     try {
         const content = fs.readFileSync(configPath, 'utf-8');
-        return { ...defaultConfig, ...JSON.parse(content) };
+        const parsed = JSON.parse(content);
+        const { config: sanitized, changed } = sanitizeConfig(parsed);
+        if (changed) {
+            fs.writeFileSync(configPath, JSON.stringify(sanitized, null, 2), 'utf-8');
+        }
+        return sanitized;
     }
     catch {
         vscode.window.showErrorMessage('读取配置文件失败，使用默认配置');
@@ -92,7 +118,7 @@ const writeConfig = (config) => {
         return;
     }
     const currentConfig = (0, exports.readConfig)();
-    const newConfig = { ...currentConfig, ...config };
+    const { config: newConfig } = sanitizeConfig({ ...currentConfig, ...config });
     try {
         fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), 'utf-8');
     }
