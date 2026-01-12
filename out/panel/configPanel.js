@@ -62,16 +62,10 @@ const openConfigPanel = async () => {
             key: 'fontSize'
         },
         {
-            label: '高亮背景色',
+            label: '高亮颜色',
             description: `当前值: ${config.highlightColor}`,
             type: 'string',
             key: 'highlightColor' // 现在类型匹配
-        },
-        {
-            label: '高亮文本色',
-            description: `当前值: ${config.highlightTextColor}`,
-            type: 'string',
-            key: 'highlightTextColor' // 现在类型匹配
         }
     ];
     // 创建快速选择面板

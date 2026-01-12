@@ -12,11 +12,13 @@ export class Highlighter {
   private disposables: vscode.Disposable[] = [];
 
   constructor(context: vscode.ExtensionContext) {
+    const cfg = readConfig();
+    const initialColor = cfg.highlightColor || '#FFD700';
     this.decorations = {
       highlight: vscode.window.createTextEditorDecorationType({
         isWholeLine: false,
-        // 使用背景色代替 className 属性以满足 typings
-        backgroundColor: 'rgba(255,215,0,0.15)'
+        // 仅修改文字颜色，不改变背景
+        color: initialColor
       })
     };
 
@@ -294,6 +296,20 @@ export class Highlighter {
     context.subscriptions.push(visibleEditorsDisposable);
     this.disposables.push(visibleEditorsDisposable);
 
+    // 监听配置变化以便动态更新高亮颜色（例如通过配置面板修改）
+    const configDisposable = vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('novel-helper.highlightColor')) {
+        try {
+          this.recreateDecoration();
+        } catch {
+          // 忽略重建错误
+        }
+        this.updateHighlights();
+      }
+    });
+    context.subscriptions.push(configDisposable);
+    this.disposables.push(configDisposable);
+
     // 初始化时立即更新所有可见编辑器的高亮
     this.updateHighlights();
   }
@@ -372,7 +388,7 @@ export class Highlighter {
       try {
         const actual = document.getText(hi.range).trim();
         if (actual) { searchText = actual; }
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -435,17 +451,30 @@ export class Highlighter {
   }
 
   /**
+   * 重新创建装饰器（用于配置变更时更新颜色）
+   */
+  private recreateDecoration(): void {
+    try { this.decorations.highlight.dispose(); } catch { /* ignore */ }
+    const cfg = readConfig();
+    const color = cfg.highlightColor || '#FFD700';
+    this.decorations.highlight = vscode.window.createTextEditorDecorationType({
+      isWholeLine: false,
+      color
+    });
+  }
+
+  /**
    * 清理资源
    */
   public dispose(): void {
     // 清理所有注册的 disposables
     this.disposables.forEach(d => {
-      try { d.dispose(); } catch (e) { /* ignore */ }
+      try { d.dispose(); } catch { /* ignore */ }
     });
 
     // 销毁装饰器
     Object.keys(this.decorations).forEach(k => {
-      try { this.decorations[k].dispose(); } catch (e) { /* ignore */ }
+      try { this.decorations[k].dispose(); } catch { /* ignore */ }
     });
   }
 }

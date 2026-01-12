@@ -103,7 +103,7 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
     let allFiles: string[] = [];
     try {
       allFiles = getDirFiles(dirPath);
-    } catch (e) {
+    } catch {
       return [];
     }
 
@@ -126,7 +126,7 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
         } else {
           files.push(f);
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     });
@@ -160,7 +160,7 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
           
           const count = countWords(content);
           item.description = `${count}字`;
-        } catch (e) {
+        } catch {
           // ignore
         }
       }

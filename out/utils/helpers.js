@@ -82,7 +82,7 @@ const getWorkspaceRoot = () => {
             return cfg.workspacePath;
         }
     }
-    catch (e) {
+    catch {
         // 忽略读取配置失败，回退到 workspaceFolders
     }
     const folders = vscode.workspace.workspaceFolders;
@@ -154,7 +154,7 @@ const isNovelWorkspace = () => {
         const requiredDirs = ['大纲', '设定', '素材', '正文'];
         return requiredDirs.every(d => fs.existsSync(path.join(root, d)));
     }
-    catch (e) {
+    catch {
         // 若读取配置失败，则退化到基于工作区的判断
         const root = (0, exports.getWorkspaceRoot)();
         if (!root) {

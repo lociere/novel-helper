@@ -143,6 +143,6 @@ export class StatusBarManager {
   /** 销毁状态栏项 */
   public dispose(): void {
     Object.values(this.statusBarItems).forEach(item => item.dispose());
-    this.disposables.forEach(d => { try { d.dispose(); } catch (e) { /* ignore */ } });
+    this.disposables.forEach(d => { try { d.dispose(); } catch { /* ignore */ } });
   }
 }

@@ -120,7 +120,7 @@ class NovelTreeDataProvider {
         try {
             allFiles = (0, fileSystem_1.getDirFiles)(dirPath);
         }
-        catch (e) {
+        catch {
             return [];
         }
         const children = [];
@@ -145,7 +145,7 @@ class NovelTreeDataProvider {
                     files.push(f);
                 }
             }
-            catch (e) {
+            catch {
                 // ignore
             }
         });
@@ -166,7 +166,7 @@ class NovelTreeDataProvider {
                     const count = (0, helpers_1.countWords)(content);
                     item.description = `${count}字`;
                 }
-                catch (e) {
+                catch {
                     // ignore
                 }
             }

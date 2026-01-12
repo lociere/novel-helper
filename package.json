@@ -123,11 +123,6 @@
         "novel-helper.highlightColor": {
           "type": "string",
           "default": "#FFD700",
-          "description": "高亮文本背景色"
-        },
-        "novel-helper.highlightTextColor": {
-          "type": "string",
-          "default": "#000000",
           "description": "高亮文本颜色"
         }
       }

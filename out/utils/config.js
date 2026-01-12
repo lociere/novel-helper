@@ -44,7 +44,6 @@ const defaultConfig = {
     lineSpacing: 1,
     fontSize: 14,
     highlightColor: '#FFD700',
-    highlightTextColor: '#000000',
     highlightItems: {},
     editStartTime: 0,
     totalEditTime: 0,
@@ -76,7 +75,7 @@ const readConfig = () => {
         const content = fs.readFileSync(configPath, 'utf-8');
         return { ...defaultConfig, ...JSON.parse(content) };
     }
-    catch (e) {
+    catch {
         vscode.window.showErrorMessage('读取配置文件失败，使用默认配置');
         return defaultConfig;
     }
@@ -97,7 +96,7 @@ const writeConfig = (config) => {
     try {
         fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), 'utf-8');
     }
-    catch (e) {
+    catch {
         vscode.window.showErrorMessage('写入配置文件失败');
     }
 };
@@ -113,8 +112,7 @@ const getVSCodeConfig = () => {
         paragraphIndent: config.get('paragraphIndent', 2),
         lineSpacing: config.get('lineSpacing', 1),
         fontSize: config.get('fontSize', 14),
-        highlightColor: config.get('highlightColor', '#FFD700'),
-        highlightTextColor: config.get('highlightTextColor', '#000000')
+        highlightColor: config.get('highlightColor', '#FFD700')
     };
 };
 exports.getVSCodeConfig = getVSCodeConfig;
@@ -144,7 +142,7 @@ const hideConfigFileInExplorer = () => {
             workspaceConfig.update('exclude', exclude, vscode.ConfigurationTarget.Workspace);
         }
     }
-    catch (e) {
+    catch {
         // 忽略配置更新失败
     }
 };

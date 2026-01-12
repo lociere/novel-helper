@@ -24,7 +24,6 @@ export interface NovelHelperConfig {
   lineSpacing: number;
   fontSize: number;
   highlightColor: string;
-  highlightTextColor: string;
   /**
    * highlightItems 的值采用可序列化的范围表示，便于写入配置文件
    */
@@ -41,7 +40,6 @@ const defaultConfig: NovelHelperConfig = {
   lineSpacing: 1,
   fontSize: 14,
   highlightColor: '#FFD700',
-  highlightTextColor: '#000000',
   highlightItems: {},
   editStartTime: 0,
   totalEditTime: 0,
@@ -74,7 +72,7 @@ export const readConfig = (): NovelHelperConfig => {
   try {
     const content = fs.readFileSync(configPath, 'utf-8');
     return { ...defaultConfig, ...JSON.parse(content) };
-  } catch (e) {
+  } catch {
     vscode.window.showErrorMessage('读取配置文件失败，使用默认配置');
     return defaultConfig;
   }
@@ -94,7 +92,7 @@ export const writeConfig = (config: Partial<NovelHelperConfig>): void => {
   const newConfig = { ...currentConfig, ...config };
   try {
     fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), 'utf-8');
-  } catch (e) {
+  } catch {
     vscode.window.showErrorMessage('写入配置文件失败');
   }
 };
@@ -110,8 +108,7 @@ export const getVSCodeConfig = (): NovelHelperConfig => {
     paragraphIndent: config.get('paragraphIndent', 2),
     lineSpacing: config.get('lineSpacing', 1),
     fontSize: config.get('fontSize', 14),
-    highlightColor: config.get('highlightColor', '#FFD700'),
-    highlightTextColor: config.get('highlightTextColor', '#000000')
+    highlightColor: config.get('highlightColor', '#FFD700')
   };
 };
 
@@ -140,7 +137,7 @@ export const hideConfigFileInExplorer = (): void => {
     if (changed) {
       workspaceConfig.update('exclude', exclude, vscode.ConfigurationTarget.Workspace);
     }
-  } catch (e) {
+  } catch {
     // 忽略配置更新失败
   }
 };

@@ -160,7 +160,7 @@ class StatusBarManager {
         this.disposables.forEach(d => { try {
             d.dispose();
         }
-        catch (e) { /* ignore */ } });
+        catch { /* ignore */ } });
     }
 }
 exports.StatusBarManager = StatusBarManager;

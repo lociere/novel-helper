@@ -68,8 +68,7 @@ VSCode小说创作辅助插件，提供目录管理、文本高亮、字数统�
 |--------|------|--------|
 | `novel-helper.paragraphIndent` | 段首缩进空格数 | 2 |
 | `novel-helper.lineSpacing` | 行间空行数 | 1 |
-| `novel-helper.highlightColor` | 高亮文本背景色 | #FFD700 |
-| `novel-helper.highlightTextColor` | 高亮文本颜色 | #000000 |
+| `novel-helper.highlightColor` | 高亮文本颜色 | #FFD700 |
 
 ## 命令列表
 

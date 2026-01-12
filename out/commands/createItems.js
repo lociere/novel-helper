@@ -136,7 +136,7 @@ const createItems = (type, name, basePath) => {
         try {
             vscode.commands.executeCommand('novelTreeView.refresh');
         }
-        catch (e) {
+        catch {
             // 忽略刷新失败
         }
     }

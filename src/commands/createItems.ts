@@ -117,7 +117,7 @@ export const createItems = (type: CreateItemType, name: string, basePath?: strin
     // 刷新树视图以立即展示新创建的文件/目录
     try {
       vscode.commands.executeCommand('novelTreeView.refresh');
-    } catch (e) {
+    } catch {
       // 忽略刷新失败
     }
   }
