@@ -11,21 +11,31 @@ const isSupportedDoc = (doc: vscode.TextDocument): boolean => {
 /**
  * 将段落按指定列宽进行硬换行（插入真实换行符）。
  * - column <= 0 时不处理
- * - column 小于等于缩进长度时不处理（避免死循环）
+ * - 首行使用 firstLineIndent；后续折行使用 continuationIndent
+ * - column 小于等于首行缩进长度时不处理（避免死循环）
  */
-export const hardWrapParagraph = (paragraph: string, column: number, indent: string): string => {
+export const hardWrapParagraph = (
+  paragraph: string,
+  column: number,
+  firstLineIndent: string,
+  continuationIndent = ''
+): string => {
   const maxColumn = Number(column || 0);
-  if (!maxColumn || maxColumn <= 0) { return indent + paragraph; }
-  if (indent.length >= maxColumn) { return indent + paragraph; }
+  if (!maxColumn || maxColumn <= 0) { return firstLineIndent + paragraph; }
+  if (firstLineIndent.length >= maxColumn) { return firstLineIndent + paragraph; }
 
   const lines: string[] = [];
-  let current = indent;
+  let current = firstLineIndent;
+  let isFirstLine = true;
 
   for (const ch of paragraph) {
     // 这里用 for..of 以支持 surrogate pair（如 emoji），减少字符切分问题
-    if (current.length + ch.length > maxColumn && current.length > indent.length) {
+    const minLen = isFirstLine ? firstLineIndent.length : continuationIndent.length;
+    if (current.length + ch.length > maxColumn && current.length > minLen) {
       lines.push(current);
-      current = indent + ch;
+      // 后续折行使用 continuationIndent
+      current = continuationIndent + ch;
+      isFirstLine = false;
       continue;
     }
     current += ch;
@@ -87,9 +97,13 @@ export class HardWrapManager implements vscode.Disposable {
     // 已经在行尾（或接近行尾）时才硬换行，避免在行中间插入导致“断句”
     if (pos.character < line.text.length) { return; }
 
+    const overallIndentToInsert = ' '.repeat(Math.max(0, cfg.overallIndent || 0));
+
     this.isApplying = true;
     editor.edit(editBuilder => {
-      editBuilder.insert(pos, '\n');
+      // 段首缩进仅作用于段落首行；自动换行是段内折行，因此不插入缩进
+      // 但“整体缩进”对所有行生效，因此在换行后补整体缩进。
+      editBuilder.insert(pos, '\n' + overallIndentToInsert);
     }).then(
       () => { this.isApplying = false; },
       () => { this.isApplying = false; }

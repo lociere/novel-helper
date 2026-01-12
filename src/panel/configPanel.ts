@@ -35,6 +35,12 @@ export const openConfigPanel = async (): Promise<void> => {
       key: 'paragraphIndent' // 现在类型匹配
     },
     {
+      label: '整体缩进空格数',
+      description: `当前值: ${config.overallIndent}`,
+      type: 'number',
+      key: 'overallIndent'
+    },
+    {
       label: '行间空行数',
       description: `当前值: ${config.lineSpacing}`,
       type: 'number',

@@ -64,6 +64,7 @@ export const registerCommands = (context: vscode.ExtensionContext): void => {
       const original = document.getText();
       const next = formatText(original, {
         paragraphIndent: cfg.paragraphIndent,
+        overallIndent: cfg.overallIndent,
         lineSpacing: cfg.lineSpacing,
         hardWrapOnFormat: cfg.hardWrapOnFormat,
         autoHardWrapColumn: cfg.autoHardWrapColumn

@@ -108,6 +108,11 @@
           "default": 2,
           "description": "段首缩进空格数（格式化时使用）"
         },
+        "novel-helper.overallIndent": {
+          "type": "number",
+          "default": 0,
+          "description": "文本整体缩进空格数：对所有行生效（首行/折行/所有段落），默认 0。"
+        },
         "novel-helper.lineSpacing": {
           "type": "number",
           "default": 1,

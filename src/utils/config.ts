@@ -21,6 +21,11 @@ export interface HighlightItem {
 export interface NovelHelperConfig {
   workspacePath: string;
   paragraphIndent: number;
+  /**
+   * 文本整体缩进空格数：对所有行生效（首行/折行/所有段落）。
+   * 默认 0。
+   */
+  overallIndent: number;
   lineSpacing: number;
   fontSize: number;
   highlightColor: string;
@@ -47,6 +52,7 @@ export interface NovelHelperConfig {
 const defaultConfig: NovelHelperConfig = {
   workspacePath: '',
   paragraphIndent: 2,
+  overallIndent: 0,
   lineSpacing: 1,
   fontSize: 14,
   highlightColor: '#FFD700',
@@ -151,6 +157,7 @@ export const getVSCodeConfig = (): NovelHelperConfig => {
   return {
     ...readConfig(),
     paragraphIndent: config.get('paragraphIndent', 2),
+    overallIndent: config.get('overallIndent', 0),
     lineSpacing: config.get('lineSpacing', 1),
     fontSize: config.get('fontSize', 14),
     highlightColor: config.get('highlightColor', '#FFD700'),

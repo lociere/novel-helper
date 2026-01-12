@@ -4,6 +4,7 @@ import { hardWrapParagraph } from './hardWrapManager';
 
 type FormatConfig = {
   paragraphIndent: number;
+  overallIndent: number;
   lineSpacing: number;
   hardWrapOnFormat: boolean;
   autoHardWrapColumn: number;
@@ -21,14 +22,18 @@ export const formatText = (text: string, config: FormatConfig): string => {
   // 0 => 换行 (\n)
   // 1 => 换行+空一行 (\n\n)
   const separator = '\n'.repeat(Math.max(1, config.lineSpacing + 1));
-  const indentString = ' '.repeat(config.paragraphIndent);
+  const overallIndentString = ' '.repeat(Math.max(0, config.overallIndent || 0));
+  const firstLineIndentString = overallIndentString + ' '.repeat(Math.max(0, config.paragraphIndent || 0));
 
   const hardWrapColumn = Number(config.autoHardWrapColumn || 0);
   const hardWrapOnFormat = Boolean(config.hardWrapOnFormat) && hardWrapColumn > 0;
 
   // 3. 重新组装文档
   return paragraphs
-    .map(p => hardWrapOnFormat ? hardWrapParagraph(p, hardWrapColumn, indentString) : (indentString + p))
+    .map(p => hardWrapOnFormat
+      ? hardWrapParagraph(p, hardWrapColumn, firstLineIndentString, overallIndentString)
+      : (firstLineIndentString + p)
+    )
     .join(separator);
 };
 
@@ -51,6 +56,7 @@ export class Formatter {
 
         const newText = formatText(text, {
           paragraphIndent: config.paragraphIndent,
+          overallIndent: config.overallIndent,
           lineSpacing: config.lineSpacing,
           hardWrapOnFormat: config.hardWrapOnFormat,
           autoHardWrapColumn: config.autoHardWrapColumn
