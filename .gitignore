@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+out/
+dist/
+build/
+
+# Logs and coverage
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+coverage/
+
+# Editors/OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Temp files
+*.tmp
+*.swp
+*.swm
+
+# Local config/state
+.novel-helper.json
