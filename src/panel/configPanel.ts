@@ -59,6 +59,12 @@ export const openConfigPanel = async (): Promise<void> => {
       key: 'highlightColor' // 现在类型匹配
     },
     {
+      label: '隐藏缩进参考线',
+      description: `当前值: ${config.autoDisableIndentGuides ? '开启' : '关闭'}`,
+      type: 'boolean',
+      key: 'autoDisableIndentGuides'
+    },
+    {
       label: '格式化时硬换行',
       description: `当前值: ${config.hardWrapOnFormat ? '开启' : '关闭'}`,
       type: 'boolean',

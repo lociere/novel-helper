@@ -7,6 +7,7 @@ import { registerHighlighter } from './highlighter';
 import { registerStats } from './stats';
 import { registerFormatter } from './formatter';
 import { hideConfigFileInExplorer } from './utils/config';
+import { syncIndentGuidesSetting } from './utils/editorSettings';
 
 /**
  * 扩展激活入口
@@ -41,6 +42,16 @@ export function activate(context: vscode.ExtensionContext): void {
     // 忽略非关键错误
     console.warn('[Novel Helper] 隐藏配置文件失败:', e);
   }
+
+  // 同步缩进参考线显示（避免出现竖线）
+  void syncIndentGuidesSetting();
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('novel-helper.autoDisableIndentGuides')) {
+        void syncIndentGuidesSetting();
+      }
+    })
+  );
 }
 
 /**

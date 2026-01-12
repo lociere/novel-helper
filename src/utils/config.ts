@@ -30,6 +30,11 @@ export interface NovelHelperConfig {
   fontSize: number;
   highlightColor: string;
   /**
+   * 自动隐藏 VS Code 缩进参考线（避免出现竖线）。
+   * 仅写入工作区设置，不影响全局用户设置。
+   */
+  autoDisableIndentGuides: boolean;
+  /**
    * 是否在“格式化文档”时进行硬换行（插入真实换行符）。
    * 默认关闭，避免改变既有行为。
    */
@@ -56,6 +61,7 @@ const defaultConfig: NovelHelperConfig = {
   lineSpacing: 1,
   fontSize: 14,
   highlightColor: '#FFD700',
+  autoDisableIndentGuides: false,
   hardWrapOnFormat: false,
   autoHardWrapColumn: 0,
   highlightItems: {},
@@ -161,6 +167,7 @@ export const getVSCodeConfig = (): NovelHelperConfig => {
     lineSpacing: config.get('lineSpacing', 1),
     fontSize: config.get('fontSize', 14),
     highlightColor: config.get('highlightColor', '#FFD700'),
+    autoDisableIndentGuides: config.get('autoDisableIndentGuides', false),
     hardWrapOnFormat: config.get('hardWrapOnFormat', false),
     autoHardWrapColumn: config.get('autoHardWrapColumn', 0)
   };

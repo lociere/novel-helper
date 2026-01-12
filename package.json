@@ -128,6 +128,11 @@
           "default": "#FFD700",
           "description": "高亮文本颜色（仅改变文字颜色，不改变背景/不加下划线）"
         },
+        "novel-helper.autoDisableIndentGuides": {
+          "type": "boolean",
+          "default": false,
+          "description": "自动隐藏 VS Code 缩进参考线（避免出现两条竖线）。仅写入工作区设置，不影响全局用户设置。"
+        },
         "novel-helper.hardWrapOnFormat": {
           "type": "boolean",
           "default": false,
