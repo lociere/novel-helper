@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig, getEditorWrapSettings } from '../utils/config';
+import { getVSCodeConfig, getEffectiveWrapSettings } from '../utils/config';
 
 import { formatText } from './formatCore';
 export { formatText, type FormatConfig } from './formatCore';
@@ -21,20 +21,7 @@ export class Formatter {
         const cfg = getVSCodeConfig();
         const text = document.getText();
 
-        const wrap = getEditorWrapSettings(document);
-
-        const effectiveLimit = (() => {
-          if (cfg.autoSyncWordWrapColumn) {
-            // 跟随 VS Code 的 wordWrapColumn
-            return cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0
-              ? cfg.editorWordWrapColumn
-              : wrap.wordWrapColumn;
-          }
-          // 使用插件的自动硬换行阈值
-          if (cfg.autoHardWrapColumn && cfg.autoHardWrapColumn > 0) { return cfg.autoHardWrapColumn; }
-          if (cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0) { return cfg.editorWordWrapColumn; }
-          return 0;
-        })();
+        const wrap = getEffectiveWrapSettings(cfg, document);
 
         const newText = formatText(text, {
           paragraphIndent: cfg.paragraphIndent,
@@ -46,7 +33,7 @@ export class Formatter {
           mergeSoftWrappedLines: cfg.mergeSoftWrappedLines,
           hardWrapOnFormat: cfg.hardWrapOnFormat,
           useFullWidthIndent: cfg.useFullWidthIndent,
-          lineCharLimit: effectiveLimit,
+          lineCharLimit: wrap.column,
           tabSize: wrap.tabSize
         });
 

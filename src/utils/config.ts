@@ -201,6 +201,28 @@ export const writeConfig = (config: Partial<NovelHelperConfig>): void => {
 };
 
 /**
+ * 统一更新配置：同时写入 .novel-helper.json 与工作区 settings.json（novel-helper.*）。
+ */
+export function updateNovelHelperSetting<K extends keyof NovelHelperConfig>(
+  key: K,
+  value: NovelHelperConfig[K],
+  target?: vscode.ConfigurationTarget
+): Promise<void>;
+export function updateNovelHelperSetting(
+  key: keyof NovelHelperConfig,
+  value: NovelHelperConfig[keyof NovelHelperConfig],
+  target?: vscode.ConfigurationTarget
+): Promise<void>;
+export async function updateNovelHelperSetting(
+  key: keyof NovelHelperConfig,
+  value: NovelHelperConfig[keyof NovelHelperConfig],
+  target: vscode.ConfigurationTarget = vscode.ConfigurationTarget.Workspace
+): Promise<void> {
+  writeConfig({ [key]: value } as Partial<NovelHelperConfig>);
+  await vscode.workspace.getConfiguration('novel-helper').update(key as string, value, target);
+}
+
+/**
  * 获取VSCode内置配置
  * @returns 内置配置
  */
@@ -252,6 +274,44 @@ export const getEditorWrapSettings = (doc?: vscode.TextDocument): {
   // 配置可能为 'auto'，此时兜底 4
   const numericTabSize = typeof tabSize === 'number' ? tabSize : 4;
   return { wordWrap, wordWrapColumn: Math.max(1, Number(wordWrapColumn || 80)), tabSize: Math.max(1, Number(numericTabSize || 4)) };
+};
+
+export type EffectiveWrapSettings = {
+  /** 0 表示禁用阀值（不进行自动硬换行/不按阀值折行） */
+  column: number;
+  tabSize: number;
+  source: 'vscode' | 'novel-helper' | 'disabled';
+  editor: ReturnType<typeof getEditorWrapSettings>;
+};
+
+/**
+ * 计算“实际生效”的换行阀值与 tabSize。
+ * 规则：
+ * - 开启 autoSyncWordWrapColumn：优先使用 novel-helper.editorWordWrapColumn（>0）否则使用 VS Code editor.wordWrapColumn
+ * - 未开启同步：优先使用 novel-helper.autoHardWrapColumn（>0），否则使用 novel-helper.editorWordWrapColumn（>0），否则 0
+ */
+export const getEffectiveWrapSettings = (
+  cfg: NovelHelperConfig,
+  doc?: vscode.TextDocument
+): EffectiveWrapSettings => {
+  const editor = getEditorWrapSettings(doc);
+
+  if (cfg.autoSyncWordWrapColumn) {
+    const column = cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0
+      ? cfg.editorWordWrapColumn
+      : editor.wordWrapColumn;
+    return { column, tabSize: editor.tabSize, source: 'vscode', editor };
+  }
+
+  if (cfg.autoHardWrapColumn && cfg.autoHardWrapColumn > 0) {
+    return { column: cfg.autoHardWrapColumn, tabSize: editor.tabSize, source: 'novel-helper', editor };
+  }
+
+  if (cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0) {
+    return { column: cfg.editorWordWrapColumn, tabSize: editor.tabSize, source: 'novel-helper', editor };
+  }
+
+  return { column: 0, tabSize: editor.tabSize, source: 'disabled', editor };
 };
 
 /**

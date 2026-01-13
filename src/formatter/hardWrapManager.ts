@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig, getEditorWrapSettings } from '../utils/config';
+import { getVSCodeConfig, getEffectiveWrapSettings } from '../utils/config';
 import { splitByVSCodeColumns, stringVSCodeColumns } from './textWidth';
 
 const SUPPORTED_LANGS = new Set(['plaintext', 'markdown']);
@@ -77,16 +77,8 @@ export class HardWrapManager implements vscode.Disposable {
     if (this.isApplying) { return; }
 
     const cfg = getVSCodeConfig();
-    const wrap = getEditorWrapSettings(event.document);
-    const column = (() => {
-      if (cfg.autoSyncWordWrapColumn) {
-        return cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0
-          ? cfg.editorWordWrapColumn
-          : wrap.wordWrapColumn;
-      }
-      return Number(cfg.autoHardWrapColumn || 0);
-    })();
-    if (!column || column <= 0) { return; }
+    const wrap = getEffectiveWrapSettings(cfg, event.document);
+    if (!wrap.column || wrap.column <= 0) { return; }
 
     const editor = vscode.window.activeTextEditor;
     if (!editor) { return; }
@@ -110,7 +102,7 @@ export class HardWrapManager implements vscode.Disposable {
     const lineWidth = stringVSCodeColumns(line.text, wrap.tabSize);
 
     // 当前行达到阈值后触发
-    if (lineWidth < column) { return; }
+    if (lineWidth < wrap.column) { return; }
 
     const indentChar = cfg.useFullWidthIndent ? '\u3000' : ' ';
     const overallIndentToInsert = indentChar.repeat(Math.max(0, cfg.overallIndent || 0));

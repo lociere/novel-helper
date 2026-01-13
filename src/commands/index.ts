@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { initWorkspace } from './initWorkspace';
 import { createItem, CreateItemType } from './createItems';
-import { getVSCodeConfig, getEditorWrapSettings } from '../utils/config';
+import { getVSCodeConfig, getEffectiveWrapSettings } from '../utils/config';
 import { formatText } from '../formatter/formatter';
 
 const SUPPORTED_FORMAT_LANGS = new Set(['plaintext', 'markdown']);
@@ -61,18 +61,7 @@ export const registerCommands = (context: vscode.ExtensionContext): void => {
       }
 
       const cfg = getVSCodeConfig();
-      const wrap = getEditorWrapSettings(document);
-
-      const effectiveLimit = (() => {
-        if (cfg.autoSyncWordWrapColumn) {
-          return cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0
-            ? cfg.editorWordWrapColumn
-            : wrap.wordWrapColumn;
-        }
-        if (cfg.autoHardWrapColumn && cfg.autoHardWrapColumn > 0) { return cfg.autoHardWrapColumn; }
-        if (cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0) { return cfg.editorWordWrapColumn; }
-        return 0;
-      })();
+      const wrap = getEffectiveWrapSettings(cfg, document);
 
       const original = document.getText();
       const next = formatText(original, {
@@ -85,7 +74,7 @@ export const registerCommands = (context: vscode.ExtensionContext): void => {
         mergeSoftWrappedLines: cfg.mergeSoftWrappedLines,
         hardWrapOnFormat: cfg.hardWrapOnFormat,
         useFullWidthIndent: cfg.useFullWidthIndent,
-        lineCharLimit: effectiveLimit,
+        lineCharLimit: wrap.column,
         tabSize: wrap.tabSize
       });
 
