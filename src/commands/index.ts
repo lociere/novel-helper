@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { initWorkspace } from './initWorkspace';
 import { createItem, CreateItemType } from './createItems';
-import { getVSCodeConfig } from '../utils/config';
+import { getVSCodeConfig, getEditorWrapSettings } from '../utils/config';
 import { formatText } from '../formatter/formatter';
 
 const SUPPORTED_FORMAT_LANGS = new Set(['plaintext', 'markdown']);
@@ -61,6 +61,19 @@ export const registerCommands = (context: vscode.ExtensionContext): void => {
       }
 
       const cfg = getVSCodeConfig();
+      const wrap = getEditorWrapSettings(document);
+
+      const effectiveLimit = (() => {
+        if (cfg.autoSyncWordWrapColumn) {
+          return cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0
+            ? cfg.editorWordWrapColumn
+            : wrap.wordWrapColumn;
+        }
+        if (cfg.autoHardWrapColumn && cfg.autoHardWrapColumn > 0) { return cfg.autoHardWrapColumn; }
+        if (cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0) { return cfg.editorWordWrapColumn; }
+        return 0;
+      })();
+
       const original = document.getText();
       const next = formatText(original, {
         paragraphIndent: cfg.paragraphIndent,
@@ -72,7 +85,8 @@ export const registerCommands = (context: vscode.ExtensionContext): void => {
         mergeSoftWrappedLines: cfg.mergeSoftWrappedLines,
         hardWrapOnFormat: cfg.hardWrapOnFormat,
         useFullWidthIndent: cfg.useFullWidthIndent,
-        lineCharLimit: cfg.autoHardWrapColumn
+        lineCharLimit: effectiveLimit,
+        tabSize: wrap.tabSize
       });
 
       // 自检：如果配置要求段首缩进，但输出首个非空行没有缩进，则提示用户定位原因

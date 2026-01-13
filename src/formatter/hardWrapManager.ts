@@ -26,7 +26,7 @@ export const hardWrapParagraph = (
   const maxColumn = Number(column || 0);
   if (!maxColumn || maxColumn <= 0) { return firstLineIndent + paragraph; }
 
-  // maxColumn 是 VS Code/Monaco 的“列数”阈值（更接近 UTF-16 code units），这里需要扣除缩进自身的列数
+  // maxColumn 是 VS Code/Monaco 的“可见列数”阈值，这里需要扣除缩进自身的列数
   const firstIndentWidth = stringVSCodeColumns(firstLineIndent, tabSize);
   const contIndentWidth = stringVSCodeColumns(continuationIndent, tabSize);
   if (firstIndentWidth >= maxColumn) { return firstLineIndent + paragraph; }
@@ -106,9 +106,8 @@ export class HardWrapManager implements vscode.Disposable {
     // 仅在行尾时硬换行，避免在行中间插入导致“断句”
     if (pos.character < line.text.length) { return; }
 
-    // 阈值按“整行列数（UTF-16）”理解（包含缩进），以匹配 VS Code/Monaco 的 wordWrapColumn
-    const tabSize = typeof editor.options.tabSize === 'number' ? editor.options.tabSize : 4;
-    const lineWidth = stringVSCodeColumns(line.text, tabSize);
+    // 阈值按“整行可见列数”理解（包含缩进），以匹配 VS Code/Monaco 的 wordWrapColumn
+    const lineWidth = stringVSCodeColumns(line.text, wrap.tabSize);
 
     // 当前行达到阈值后触发
     if (lineWidth < column) { return; }

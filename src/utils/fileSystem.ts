@@ -104,7 +104,7 @@ export const writeFile = (filePath: string, content: string): void => {
 
     // 写入文件
     fs.writeFileSync(filePath, content, 'utf-8');
-    
+
     // 友好提示
     const fileName = path.basename(filePath);
     vscode.window.showInformationMessage(`文件保存成功：${fileName}`);
@@ -124,7 +124,7 @@ export const getDirFiles = (dirPath: string): string[] => {
   if (!dirPath || !fs.existsSync(dirPath)) {
     return [];
   }
-  
+
   try {
     return fs.readdirSync(dirPath);
   } catch (error) {

@@ -18,11 +18,10 @@ export class Formatter {
     // 注册文档格式化程序
     const formatterProvider: vscode.DocumentFormattingEditProvider = {
       provideDocumentFormattingEdits: (document: vscode.TextDocument): vscode.TextEdit[] => {
-        const config = getVSCodeConfig();
+        const cfg = getVSCodeConfig();
         const text = document.getText();
 
         const wrap = getEditorWrapSettings(document);
-        const cfg = getVSCodeConfig();
 
         const effectiveLimit = (() => {
           if (cfg.autoSyncWordWrapColumn) {
@@ -38,15 +37,15 @@ export class Formatter {
         })();
 
         const newText = formatText(text, {
-          paragraphIndent: config.paragraphIndent,
-          overallIndent: config.overallIndent,
-          lineSpacing: config.lineSpacing,
-          intraLineSpacing: config.intraLineSpacing,
-          paragraphSplitMode: config.paragraphSplitMode,
-          paragraphSplitOnIndentedLine: config.paragraphSplitOnIndentedLine,
-          mergeSoftWrappedLines: config.mergeSoftWrappedLines,
-          hardWrapOnFormat: config.hardWrapOnFormat,
-          useFullWidthIndent: config.useFullWidthIndent,
+          paragraphIndent: cfg.paragraphIndent,
+          overallIndent: cfg.overallIndent,
+          lineSpacing: cfg.lineSpacing,
+          intraLineSpacing: cfg.intraLineSpacing,
+          paragraphSplitMode: cfg.paragraphSplitMode,
+          paragraphSplitOnIndentedLine: cfg.paragraphSplitOnIndentedLine,
+          mergeSoftWrappedLines: cfg.mergeSoftWrappedLines,
+          hardWrapOnFormat: cfg.hardWrapOnFormat,
+          useFullWidthIndent: cfg.useFullWidthIndent,
           lineCharLimit: effectiveLimit,
           tabSize: wrap.tabSize
         });

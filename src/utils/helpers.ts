@@ -71,17 +71,17 @@ export const getCurrentTimestamp = (): number => Date.now();
  * 将毫秒格式化为易读字符串（例如：1天 2小时 3分钟）
  */
 export const formatTime = (ms: number): string => {
-  if (!ms || ms <= 0) {return '0秒';}
+  if (!ms || ms <= 0) { return '0秒'; }
   const totalSeconds = Math.floor(ms / 1000);
   const days = Math.floor(totalSeconds / 86400);
   const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   const parts: string[] = [];
-  if (days) {parts.push(`${days}天`);}
-  if (hours) {parts.push(`${hours}小时`);}
-  if (minutes) {parts.push(`${minutes}分钟`);}
-  if (seconds) {parts.push(`${seconds}秒`);}
+  if (days) { parts.push(`${days}天`); }
+  if (hours) { parts.push(`${hours}小时`); }
+  if (minutes) { parts.push(`${minutes}分钟`); }
+  if (seconds) { parts.push(`${seconds}秒`); }
   return parts.join(' ');
 };
 
@@ -89,13 +89,11 @@ export const formatTime = (ms: number): string => {
  * 计算写作速度（字/分钟），输入时间为毫秒
  */
 export const calculateWritingSpeed = (words: number, ms: number): number => {
-  if (!ms || ms <= 0) {return 0;}
+  if (!ms || ms <= 0) { return 0; }
   const minutes = ms / 60000;
-  if (minutes <= 0) {return 0;}
+  if (minutes <= 0) { return 0; }
   return Math.round(words / minutes);
 };
-
-
 
 /**
  * 判断当前工作区是否为已初始化的小说工作区（存在关键目录）
@@ -103,19 +101,7 @@ export const calculateWritingSpeed = (words: number, ms: number): number => {
 export const isNovelWorkspace = (): boolean => {
   const requiredDirs = ['大纲', '设定', '素材', '正文'];
 
-  const resolveRoot = (): string | undefined => {
-    try {
-      const cfg = readConfig();
-      if (cfg && cfg.workspacePath && fs.existsSync(cfg.workspacePath)) {
-        return cfg.workspacePath;
-      }
-    } catch {
-      // 忽略配置读取错误，回退到 workspaceFolders
-    }
-    return getWorkspaceRoot();
-  };
-
-  const root = resolveRoot();
+  const root = getWorkspaceRoot();
   if (!root) { return false; }
   return requiredDirs.every(d => fs.existsSync(path.join(root, d)));
 };
