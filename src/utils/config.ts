@@ -26,7 +26,31 @@ export interface NovelHelperConfig {
    * 默认 0。
    */
   overallIndent: number;
+  /**
+   * 段间距（段间空行数）。
+   */
   lineSpacing: number;
+  /**
+   * 段内行间距（段内空行数）。
+   * 仅影响同一段内多行（例如硬换行产生的多行）。
+   */
+  intraLineSpacing: number;
+  /**
+   * 段落识别策略：决定是否把“空行”作为段落分隔标准。
+   * - anyBlankLine: 只要文档中出现过空行，就用空行分段（旧逻辑）
+   * - requireAll: 只有当所有段落边界都有空行时才用空行分段，否则退化为“一行一段”
+   * - majority: 当大多数段落边界都有空行时才用空行分段，否则退化为“一行一段”
+   */
+  paragraphSplitMode: 'anyBlankLine' | 'requireAll' | 'majority';
+  /**
+   * 当某一行本身带段首缩进（看起来是新段开头）时，即使段落间没有空行，也强制从该行开始新段落。
+   */
+  paragraphSplitOnIndentedLine: boolean;
+  /**
+   * 将同一段内“只是为了换行而手动断行”的多行文字合并为一行，再按阈值重新硬换行。
+   * 仅在 hardWrapOnFormat 开启时生效。
+   */
+  mergeSoftWrappedLines: boolean;
   fontSize: number;
   highlightColor: string;
   /**
@@ -45,6 +69,21 @@ export interface NovelHelperConfig {
    */
   autoHardWrapColumn: number;
   /**
+   * 是否自动同步 VS Code 的显示换行设置（editor.wordWrap / editor.wordWrapColumn）。
+   * 仅写入工作区设置，不影响全局用户设置。
+   */
+  autoSyncWordWrapColumn: boolean;
+  /**
+   * VS Code 显示换行列宽（editor.wordWrapColumn）。
+   * 0 表示跟随 autoHardWrapColumn（当启用 autoSyncWordWrapColumn 时）。
+   */
+  editorWordWrapColumn: number;
+  /**
+   * 是否使用全角空格（U+3000）作为缩进单位。
+   * 适合中文小说排版：视觉上更明显。
+   */
+  useFullWidthIndent: boolean;
+  /**
    * highlightItems 的值采用可序列化的范围表示，便于写入配置文件
    */
   highlightItems: { [key: string]: HighlightItem };
@@ -59,11 +98,18 @@ const defaultConfig: NovelHelperConfig = {
   paragraphIndent: 2,
   overallIndent: 0,
   lineSpacing: 1,
+  intraLineSpacing: 0,
+  paragraphSplitMode: 'anyBlankLine',
+  paragraphSplitOnIndentedLine: true,
+  mergeSoftWrappedLines: true,
   fontSize: 14,
   highlightColor: '#FFD700',
   autoDisableIndentGuides: false,
   hardWrapOnFormat: false,
   autoHardWrapColumn: 0,
+  autoSyncWordWrapColumn: false,
+  editorWordWrapColumn: 0,
+  useFullWidthIndent: false,
   highlightItems: {},
   editStartTime: 0,
   totalEditTime: 0,
@@ -165,12 +211,47 @@ export const getVSCodeConfig = (): NovelHelperConfig => {
     paragraphIndent: config.get('paragraphIndent', 2),
     overallIndent: config.get('overallIndent', 0),
     lineSpacing: config.get('lineSpacing', 1),
+    // 默认：段内行间距 = max(段间距-1, 0)，但允许用户单独配置覆盖
+    intraLineSpacing: config.get('intraLineSpacing', Math.max(0, config.get('lineSpacing', 1) - 1)),
+    paragraphSplitMode: config.get('paragraphSplitMode', 'anyBlankLine'),
+    paragraphSplitOnIndentedLine: config.get('paragraphSplitOnIndentedLine', true),
+    mergeSoftWrappedLines: config.get('mergeSoftWrappedLines', true),
     fontSize: config.get('fontSize', 14),
     highlightColor: config.get('highlightColor', '#FFD700'),
     autoDisableIndentGuides: config.get('autoDisableIndentGuides', false),
     hardWrapOnFormat: config.get('hardWrapOnFormat', false),
-    autoHardWrapColumn: config.get('autoHardWrapColumn', 0)
+    autoHardWrapColumn: config.get('autoHardWrapColumn', 0),
+    autoSyncWordWrapColumn: config.get('autoSyncWordWrapColumn', false),
+    editorWordWrapColumn: config.get('editorWordWrapColumn', 0),
+    useFullWidthIndent: config.get('useFullWidthIndent', false)
   };
+};
+
+/**
+ * 读取 VS Code 的编辑器换行/制表设置，用于与自动换行逻辑对齐。
+ */
+export const getEditorWrapSettings = (doc?: vscode.TextDocument): {
+  wordWrap: string;
+  wordWrapColumn: number;
+  tabSize: number;
+} => {
+  const editorConfig = vscode.workspace.getConfiguration('editor', doc?.uri);
+  const wordWrap = editorConfig.get<string>('wordWrap', 'off');
+  const wordWrapColumn = editorConfig.get<number>('wordWrapColumn', 80);
+  let tabSize = editorConfig.get<number | string>('tabSize', 4);
+
+  // 若有活动编辑器且对应文档，优先使用当前解析后的数值 tabSize
+  const ed = vscode.window.activeTextEditor;
+  if (ed && (!doc || ed.document === doc)) {
+    const ts = ed.options.tabSize;
+    if (typeof ts === 'number' && Number.isFinite(ts) && ts > 0) {
+      tabSize = ts;
+    }
+  }
+
+  // 配置可能为 'auto'，此时兜底 4
+  const numericTabSize = typeof tabSize === 'number' ? tabSize : 4;
+  return { wordWrap, wordWrapColumn: Math.max(1, Number(wordWrapColumn || 80)), tabSize: Math.max(1, Number(numericTabSize || 4)) };
 };
 
 /**

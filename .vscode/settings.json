@@ -3,9 +3,13 @@
     "**/.git": true,
     "**/.svn": true,
     "**/.hg": true,
-    "**/CVS": true,
     "**/.DS_Store": true,
-    "**/.novel-helper.json": true
+    "**/Thumbs.db": true,
+    "**/CVS": true,
+    "**/.novel-helper.json": true,
+    ".novel-helper.json": true,
+    ".vscode": true,
+    ".vscode/**": true
   },
   "editor.formatOnSave": false,
   "typescript.tsdk": "node_modules/typescript/lib"

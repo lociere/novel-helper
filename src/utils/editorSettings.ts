@@ -22,3 +22,29 @@ export const syncIndentGuidesSetting = async (): Promise<void> => {
     // 忽略写入失败（例如无工作区或权限问题）
   }
 };
+
+/**
+ * 根据插件配置同步 VS Code 的自动换行显示：
+ * - 开启：写入工作区 editor.wordWrap=wordWrapColumn，并设置 editor.wordWrapColumn
+ * - 关闭：移除工作区层面的对应设置，回退到用户/默认值
+ */
+export const syncWordWrapSetting = async (): Promise<void> => {
+  const cfg = getVSCodeConfig();
+  const editorCfg = vscode.workspace.getConfiguration('editor');
+
+  const desiredColumn = cfg.editorWordWrapColumn > 0
+    ? cfg.editorWordWrapColumn
+    : cfg.autoHardWrapColumn;
+
+  try {
+    if (cfg.autoSyncWordWrapColumn && desiredColumn > 0) {
+      await editorCfg.update('wordWrap', 'wordWrapColumn', vscode.ConfigurationTarget.Workspace);
+      await editorCfg.update('wordWrapColumn', desiredColumn, vscode.ConfigurationTarget.Workspace);
+    } else {
+      await editorCfg.update('wordWrap', undefined, vscode.ConfigurationTarget.Workspace);
+      await editorCfg.update('wordWrapColumn', undefined, vscode.ConfigurationTarget.Workspace);
+    }
+  } catch {
+    // 忽略写入失败（例如无工作区或权限问题）
+  }
+};

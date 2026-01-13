@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig } from '../utils/config';
+import { getVSCodeConfig, getEditorWrapSettings } from '../utils/config';
+import { splitByVSCodeColumns, stringVSCodeColumns } from './textWidth';
 
 const SUPPORTED_LANGS = new Set(['plaintext', 'markdown']);
 
@@ -18,34 +19,38 @@ export const hardWrapParagraph = (
   paragraph: string,
   column: number,
   firstLineIndent: string,
-  continuationIndent = ''
+  continuationIndent = '',
+  lineSeparator = '\n',
+  tabSize = 4
 ): string => {
   const maxColumn = Number(column || 0);
   if (!maxColumn || maxColumn <= 0) { return firstLineIndent + paragraph; }
-  if (firstLineIndent.length >= maxColumn) { return firstLineIndent + paragraph; }
 
-  const lines: string[] = [];
-  let current = firstLineIndent;
-  let isFirstLine = true;
+  // maxColumn 是 VS Code/Monaco 的“列数”阈值（更接近 UTF-16 code units），这里需要扣除缩进自身的列数
+  const firstIndentWidth = stringVSCodeColumns(firstLineIndent, tabSize);
+  const contIndentWidth = stringVSCodeColumns(continuationIndent, tabSize);
+  if (firstIndentWidth >= maxColumn) { return firstLineIndent + paragraph; }
 
-  for (const ch of paragraph) {
-    // 这里用 for..of 以支持 surrogate pair（如 emoji），减少字符切分问题
-    const minLen = isFirstLine ? firstLineIndent.length : continuationIndent.length;
-    if (current.length + ch.length > maxColumn && current.length > minLen) {
-      lines.push(current);
-      // 后续折行使用 continuationIndent
-      current = continuationIndent + ch;
-      isFirstLine = false;
-      continue;
+  const firstLimit = Math.max(1, maxColumn - firstIndentWidth);
+  const contLimit = Math.max(1, maxColumn - contIndentWidth);
+
+  const parts = splitByVSCodeColumns(paragraph, firstLimit, tabSize);
+  if (parts.length <= 1) {
+    return firstLineIndent + paragraph;
+  }
+
+  const out: string[] = [];
+  out.push(firstLineIndent + parts[0]);
+
+  // 续行继续按 contLimit 折行（避免第一段拆分后仍超阈值）
+  for (let i = 1; i < parts.length; i++) {
+    const more = splitByVSCodeColumns(parts[i], contLimit, tabSize);
+    for (const seg of more) {
+      out.push(continuationIndent + seg);
     }
-    current += ch;
   }
 
-  if (current.length > 0) {
-    lines.push(current);
-  }
-
-  return lines.join('\n');
+  return out.join(lineSeparator);
 };
 
 /**
@@ -72,7 +77,15 @@ export class HardWrapManager implements vscode.Disposable {
     if (this.isApplying) { return; }
 
     const cfg = getVSCodeConfig();
-    const column = Number(cfg.autoHardWrapColumn || 0);
+    const wrap = getEditorWrapSettings(event.document);
+    const column = (() => {
+      if (cfg.autoSyncWordWrapColumn) {
+        return cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0
+          ? cfg.editorWordWrapColumn
+          : wrap.wordWrapColumn;
+      }
+      return Number(cfg.autoHardWrapColumn || 0);
+    })();
     if (!column || column <= 0) { return; }
 
     const editor = vscode.window.activeTextEditor;
@@ -90,14 +103,18 @@ export class HardWrapManager implements vscode.Disposable {
     const pos = editor.selection.active;
     const line = editor.document.lineAt(pos.line);
 
-    // 仅当光标已在阈值之后，且当前行长度达到阈值时触发
-    if (pos.character < column) { return; }
-    if (line.text.length < column) { return; }
-
-    // 已经在行尾（或接近行尾）时才硬换行，避免在行中间插入导致“断句”
+    // 仅在行尾时硬换行，避免在行中间插入导致“断句”
     if (pos.character < line.text.length) { return; }
 
-    const overallIndentToInsert = ' '.repeat(Math.max(0, cfg.overallIndent || 0));
+    // 阈值按“整行列数（UTF-16）”理解（包含缩进），以匹配 VS Code/Monaco 的 wordWrapColumn
+    const tabSize = typeof editor.options.tabSize === 'number' ? editor.options.tabSize : 4;
+    const lineWidth = stringVSCodeColumns(line.text, tabSize);
+
+    // 当前行达到阈值后触发
+    if (lineWidth < column) { return; }
+
+    const indentChar = cfg.useFullWidthIndent ? '\u3000' : ' ';
+    const overallIndentToInsert = indentChar.repeat(Math.max(0, cfg.overallIndent || 0));
 
     this.isApplying = true;
     editor.edit(editBuilder => {

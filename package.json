@@ -2,7 +2,7 @@
   "name": "novel-helper",
   "displayName": "Novel Helper",
   "description": "VSCode辅助写小说的插件，支持目录管理、高亮、统计、排版等功能",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -10,7 +10,18 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:.novel-helper.json"
+    "workspaceContains:.novel-helper.json",
+    "onLanguage:plaintext",
+    "onLanguage:markdown",
+    "onCommand:novel-helper.formatDocument",
+    "onCommand:novel-helper.openConfigPanel",
+    "onCommand:novel-helper.showConfigPanel",
+    "onCommand:novel-helper.initWorkspace",
+    "onCommand:novel-helper.createItem",
+    "onCommand:novel-helper.addHighlight",
+    "onCommand:novel-helper.addHighlightFromSelection",
+    "onCommand:novel-helper.jumpToHighlightSource",
+    "onCommand:novel-helper.removeHighlight"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -116,7 +127,32 @@
         "novel-helper.lineSpacing": {
           "type": "number",
           "default": 1,
-          "description": "段落间空行数（0 表示仅换行；1 表示空一行）"
+          "description": "段间距（段间空行数）：0 表示仅换行；1 表示空一行"
+        },
+        "novel-helper.intraLineSpacing": {
+          "type": "number",
+          "default": 0,
+          "description": "段内行间距（段内空行数）：仅影响同一段内多行（例如硬换行产生的多行）。建议默认=段间距-1。"
+        },
+        "novel-helper.paragraphSplitMode": {
+          "type": "string",
+          "default": "anyBlankLine",
+          "enum": [
+            "anyBlankLine",
+            "requireAll",
+            "majority"
+          ],
+          "description": "段落识别策略：anyBlankLine=只要文档出现过空行就用空行分段（旧逻辑）；requireAll=只有当所有段落边界都有空行才用空行分段，否则按“一行一段”；majority=当大多数段落边界都有空行才用空行分段，否则按“一行一段”。另外：若某行本身带段首缩进，会被视为新段落开头，即使段间没有空行。"
+        },
+        "novel-helper.paragraphSplitOnIndentedLine": {
+          "type": "boolean",
+          "default": true,
+          "description": "当某一行本身带段首缩进（看起来是新段开头）时，即使段落间没有空行，也强制从该行开始新段落。默认开启。"
+        },
+        "novel-helper.mergeSoftWrappedLines": {
+          "type": "boolean",
+          "default": true,
+          "description": "将同一段内“只是为了换行而手动断行”的多行文字合并为一行，再按阈值重新硬换行（更符合软换行视觉上的“一段”）。默认开启。仅在开启“格式化时硬换行”时生效。"
         },
         "novel-helper.fontSize": {
           "type": "number",
@@ -142,6 +178,21 @@
           "type": "number",
           "default": 0,
           "description": "硬换行阈值（字符数）。0 表示关闭；大于 0 时：1) 输入时：光标位于行尾且行长度达到阈值，会自动插入换行符；2) 格式化时：若开启 hardWrapOnFormat，会按该阈值插入换行符。"
+        },
+        "novel-helper.autoSyncWordWrapColumn": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否自动同步 VS Code 的显示换行设置（editor.wordWrap/editor.wordWrapColumn）。仅写入工作区设置，不影响全局用户设置。"
+        },
+        "novel-helper.editorWordWrapColumn": {
+          "type": "number",
+          "default": 0,
+          "description": "VS Code 显示换行列宽（editor.wordWrapColumn）。0 表示跟随硬换行阈值（autoHardWrapColumn，仅当启用 autoSyncWordWrapColumn 时生效）。"
+        },
+        "novel-helper.useFullWidthIndent": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否使用全角空格（U+3000）作为缩进单位（中文排版更明显）。默认关闭（使用半角空格）。"
         }
       }
     }
@@ -149,7 +200,8 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/node": "20.2.5",
@@ -157,6 +209,7 @@
     "@typescript-eslint/eslint-plugin": "^8.52.0",
     "@typescript-eslint/parser": "^8.52.0",
     "@vscode/test-electron": "^2.3.2",
+    "@vscode/vsce": "^2.26.0",
     "eslint": "^9.39.2",
     "typescript": "^5.1.3"
   },

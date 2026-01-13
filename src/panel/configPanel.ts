@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig, writeConfig, NovelHelperConfig } from '../utils/config'; // 新增导入 NovelHelperConfig
+import { getVSCodeConfig, writeConfig, NovelHelperConfig, getEditorWrapSettings } from '../utils/config';
 
 /** 配置项类型 */
 interface ConfigItem {
   label: string;
   description: string;
-  type: 'number' | 'string' | 'boolean';
-  key: keyof NovelHelperConfig; // 修复：指定 key 类型为 NovelHelperConfig 的键
+  type: 'number' | 'string' | 'boolean' | 'action';
+  key?: keyof NovelHelperConfig; // 可选：action 类目不需要 key
+  action?: () => Promise<void> | void; // 仅 action 类型使用
 }
 
 const highlightColorPresets = [
@@ -20,90 +21,123 @@ const highlightColorPresets = [
   { label: '自定义...', value: 'custom' }
 ];
 
+const paragraphSplitModePresets: Array<{ label: string; value: 'anyBlankLine' | 'requireAll' | 'majority' }> = [
+  { label: '只要出现空行就按空行分段（兼容旧逻辑）', value: 'anyBlankLine' },
+  { label: '仅当所有段落都有段间空行才按空行分段（否则一行一段）', value: 'requireAll' },
+  { label: '当大多数段落都有段间空行时按空行分段（否则一行一段）', value: 'majority' }
+];
+
 /**
  * 打开配置面板
  */
 export const openConfigPanel = async (): Promise<void> => {
   const config = getVSCodeConfig();
+  const wrap = getEditorWrapSettings();
+  const resolvedWordWrapColumn = config.editorWordWrapColumn > 0
+    ? config.editorWordWrapColumn
+    : (config.autoSyncWordWrapColumn ? wrap.wordWrapColumn : config.autoHardWrapColumn);
 
-  // 配置项列表
-  const configItems: ConfigItem[] = [
+  // 一级：分类选择
+  const categories: Array<{ label: string; buildItems: () => ConfigItem[] }> = [
     {
-      label: '段首缩进空格数',
-      description: `当前值: ${config.paragraphIndent}`,
-      type: 'number',
-      key: 'paragraphIndent' // 现在类型匹配
+      label: '排版与缩进',
+      buildItems: () => ([
+        { label: '段首缩进空格数', description: `当前值: ${config.paragraphIndent}`, type: 'number', key: 'paragraphIndent' },
+        { label: '整体缩进空格数', description: `当前值: ${config.overallIndent}`, type: 'number', key: 'overallIndent' },
+        { label: '使用全角空格缩进', description: `当前值: ${config.useFullWidthIndent ? '开启' : '关闭'}`, type: 'boolean', key: 'useFullWidthIndent' },
+      ])
     },
     {
-      label: '整体缩进空格数',
-      description: `当前值: ${config.overallIndent}`,
-      type: 'number',
-      key: 'overallIndent'
+      label: '段落识别',
+      buildItems: () => ([
+        { label: '段落识别策略（空行分段规则）', description: `当前值: ${config.paragraphSplitMode}`, type: 'string', key: 'paragraphSplitMode' },
+        { label: '遇到段首缩进强制分段', description: `当前值: ${config.paragraphSplitOnIndentedLine ? '开启' : '关闭'} (默认开启)`, type: 'boolean', key: 'paragraphSplitOnIndentedLine' },
+      ])
     },
     {
-      label: '行间空行数',
-      description: `当前值: ${config.lineSpacing}`,
-      type: 'number',
-      key: 'lineSpacing' // 现在类型匹配
+      label: '行间距与段间距',
+      buildItems: () => ([
+        { label: '段间距（段间空行数）', description: `当前值: ${config.lineSpacing}`, type: 'number', key: 'lineSpacing' },
+        { label: '行间距（段内空行数）', description: `当前值: ${config.intraLineSpacing}`, type: 'number', key: 'intraLineSpacing' },
+      ])
     },
     {
-      label: '字号大小',
-      description: `当前值: ${config.fontSize} (仅修改配置)`,
-      type: 'number',
-      key: 'fontSize'
+      label: '换行与列宽',
+      buildItems: () => ([
+        { label: '格式化时硬换行', description: `当前值: ${config.hardWrapOnFormat ? '开启' : '关闭'}`, type: 'boolean', key: 'hardWrapOnFormat' },
+        { label: '同步 VS Code 自动换行列宽', description: `当前值: ${config.autoSyncWordWrapColumn ? '开启' : '关闭'}`, type: 'boolean', key: 'autoSyncWordWrapColumn' },
+        { label: 'VS Code 自动换行列宽（wordWrapColumn）', description: `当前值: ${config.editorWordWrapColumn}（当前生效: ${resolvedWordWrapColumn || 0}, tabSize: ${wrap.tabSize}）`, type: 'number', key: 'editorWordWrapColumn' },
+        { label: '自动硬换行阈值（插件）', description: `当前值: ${config.autoHardWrapColumn} (0 表示关闭)`, type: 'number', key: 'autoHardWrapColumn' },
+        { label: '查看 VS Code 换行设置（只读）', description: `wordWrap: ${wrap.wordWrap}, wordWrapColumn: ${wrap.wordWrapColumn}, tabSize: ${wrap.tabSize}`, type: 'action', action: async () => {
+          vscode.window.showInformationMessage(`VS Code: wordWrap=${wrap.wordWrap}, column=${wrap.wordWrapColumn}, tabSize=${wrap.tabSize}`);
+        } },
+      ])
     },
     {
-      label: '高亮颜色',
-      description: `当前值: ${config.highlightColor}`,
-      type: 'string',
-      key: 'highlightColor' // 现在类型匹配
-    },
-    {
-      label: '隐藏缩进参考线',
-      description: `当前值: ${config.autoDisableIndentGuides ? '开启' : '关闭'}`,
-      type: 'boolean',
-      key: 'autoDisableIndentGuides'
-    },
-    {
-      label: '格式化时硬换行',
-      description: `当前值: ${config.hardWrapOnFormat ? '开启' : '关闭'}`,
-      type: 'boolean',
-      key: 'hardWrapOnFormat'
-    },
-    {
-      label: '自动硬换行阈值',
-      description: `当前值: ${config.autoHardWrapColumn} (0 表示关闭)`,
-      type: 'number',
-      key: 'autoHardWrapColumn'
+      label: '显示与高亮',
+      buildItems: () => ([
+        { label: '隐藏缩进参考线', description: `当前值: ${config.autoDisableIndentGuides ? '开启' : '关闭'}`, type: 'boolean', key: 'autoDisableIndentGuides' },
+        { label: '字号大小', description: `当前值: ${config.fontSize} (仅修改配置)`, type: 'number', key: 'fontSize' },
+        { label: '高亮颜色', description: `当前值: ${config.highlightColor}`, type: 'string', key: 'highlightColor' },
+      ])
     }
   ];
 
-  // 创建快速选择面板
-  const quickPick = vscode.window.createQuickPick<ConfigItem>();
-  quickPick.items = configItems;
-  quickPick.title = 'Novel Helper 配置面板';
-  quickPick.placeholder = '选择要修改的配置项';
+  const categoryPick = vscode.window.createQuickPick<typeof categories[number]>();
+  categoryPick.items = categories as any;
+  categoryPick.title = 'Novel Helper 配置面板';
+  categoryPick.placeholder = '选择一个类别';
 
-  // 选择配置项后输入新值
-  quickPick.onDidAccept(async () => {
-    const selected = quickPick.selectedItems[0];
-    if (!selected) {
-      return;
-    }
+  categoryPick.onDidAccept(() => {
+    const chosen = categoryPick.selectedItems[0];
+    if (!chosen) { categoryPick.hide(); return; }
+    categoryPick.hide();
 
-    if (selected.key === 'highlightColor') {
-      await handleHighlightColorPick(selected);
-    } else if (selected.type === 'boolean') {
-      await handleBooleanPick(selected);
-    } else {
-      await handleGeneralInput(selected);
-    }
+    const items = chosen.buildItems();
+    const quickPick = vscode.window.createQuickPick<ConfigItem>();
+    items.push({
+      label: '返回上一级',
+      description: '返回类别列表',
+      type: 'action',
+      action: async () => {
+        quickPick.hide();
+        openConfigPanel();
+      }
+    });
+    quickPick.items = items;
+    quickPick.title = `配置：${chosen.label}`;
+    quickPick.placeholder = '选择要修改的条目';
 
-    quickPick.hide();
+    quickPick.onDidAccept(async () => {
+      const selected = quickPick.selectedItems[0];
+      if (!selected) { return; }
+
+      if (selected.type === 'action' && selected.action) {
+        await selected.action();
+        quickPick.hide();
+        return;
+      }
+      if (!selected.key) { return; }
+
+      if (selected.key === 'highlightColor') {
+        await handleHighlightColorPick(selected);
+      } else if (selected.key === 'paragraphSplitMode') {
+        await handleParagraphSplitModePick(selected);
+      } else if (selected.type === 'boolean') {
+        await handleBooleanPick(selected);
+      } else {
+        await handleGeneralInput(selected);
+      }
+
+      quickPick.hide();
+    });
+
+    quickPick.onDidHide(() => quickPick.dispose());
+    quickPick.show();
   });
 
-  quickPick.onDidHide(() => quickPick.dispose());
-  quickPick.show();
+  categoryPick.onDidHide(() => categoryPick.dispose());
+  categoryPick.show();
 };
 
 const handleBooleanPick = async (selected: ConfigItem): Promise<void> => {
@@ -177,7 +211,26 @@ const handleGeneralInput = async (selected: ConfigItem): Promise<void> => {
 };
 
 const applyConfigUpdate = (selected: ConfigItem, value: string | number | boolean): void => {
+  if (!selected.key) { return; }
   writeConfig({ [selected.key]: value });
   vscode.workspace.getConfiguration('novel-helper').update(selected.key, value, vscode.ConfigurationTarget.Workspace);
   vscode.window.showInformationMessage(`${selected.label}已更新为: ${value}`);
 };
+
+const handleParagraphSplitModePick = async (selected: ConfigItem): Promise<void> => {
+  const pick = await vscode.window.showQuickPick(
+    paragraphSplitModePresets.map(p => ({ label: p.label, value: p.value })),
+    {
+      title: selected.label,
+      placeHolder: '选择段落识别策略'
+    }
+  );
+
+  if (!pick) { return; }
+  applyConfigUpdate(selected, pick.value);
+};
+
+/**
+ * 一键推荐：中文小说排版
+ */
+// 预设已移除（应用户要求）

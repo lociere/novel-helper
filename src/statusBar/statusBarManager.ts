@@ -130,7 +130,10 @@ export class StatusBarManager {
     const speed = calculateWritingSpeed(wordChange, duration);
 
     this.updateStatusBarItem(this.statusBarItems.wordCount, `字数: ${this.currentWordCount}`);
-    this.updateStatusBarItem(this.statusBarItems.format, `缩进: ${config.paragraphIndent} | 空行: ${config.lineSpacing}`);
+    this.updateStatusBarItem(
+      this.statusBarItems.format,
+      `缩进: ${config.paragraphIndent} | 段间距: ${config.lineSpacing} | 行间距: ${config.intraLineSpacing} | 分段: ${config.paragraphSplitMode} | 缩进分段: ${config.paragraphSplitOnIndentedLine ? '开' : '关'}`
+    );
     this.updateStatusBarItem(this.statusBarItems.speed, `速度: ${speed} 字/分钟`);
     this.updateStatusBarItem(this.statusBarItems.time, `时长: ${formatTime(config.totalEditTime + duration)}`);
     

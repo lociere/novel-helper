@@ -56,7 +56,7 @@ export const registerCommands = (context: vscode.ExtensionContext): void => {
 
       const document = editor.document;
       if (!canFormatByNovelHelper(document)) {
-        vscode.window.showWarningMessage('当前文件类型不支持 Novel Helper 格式化（仅支持 txt/plaintext 与 markdown）');
+        vscode.window.showWarningMessage(`当前文件类型不支持 Novel Helper 格式化：languageId=${document.languageId}（仅支持 plaintext 与 markdown）`);
         return;
       }
 
@@ -66,9 +66,25 @@ export const registerCommands = (context: vscode.ExtensionContext): void => {
         paragraphIndent: cfg.paragraphIndent,
         overallIndent: cfg.overallIndent,
         lineSpacing: cfg.lineSpacing,
+        intraLineSpacing: cfg.intraLineSpacing,
+        paragraphSplitMode: cfg.paragraphSplitMode,
+        paragraphSplitOnIndentedLine: cfg.paragraphSplitOnIndentedLine,
+        mergeSoftWrappedLines: cfg.mergeSoftWrappedLines,
         hardWrapOnFormat: cfg.hardWrapOnFormat,
-        autoHardWrapColumn: cfg.autoHardWrapColumn
+        useFullWidthIndent: cfg.useFullWidthIndent,
+        lineCharLimit: cfg.autoHardWrapColumn
       });
+
+      // 自检：如果配置要求段首缩进，但输出首个非空行没有缩进，则提示用户定位原因
+      const indentChar = cfg.useFullWidthIndent ? '\u3000' : ' ';
+      const expectedFirstLineIndent = indentChar.repeat(Math.max(0, (cfg.overallIndent || 0) + (cfg.paragraphIndent || 0)));
+      const firstNonEmpty = next.split(/\r?\n/).find(l => l.trim().length > 0) ?? '';
+      if (expectedFirstLineIndent.length > 0 && firstNonEmpty && !firstNonEmpty.startsWith(expectedFirstLineIndent)) {
+        const preview = firstNonEmpty.slice(0, Math.min(16, firstNonEmpty.length));
+        vscode.window.showWarningMessage(
+          `Novel Helper 格式化后检测到“段首缩进未写入”。当前缩进配置：段首=${cfg.paragraphIndent}, 整体=${cfg.overallIndent}, 全角缩进=${cfg.useFullWidthIndent ? '是' : '否'}；首行前缀预览：${JSON.stringify(preview)}`
+        );
+      }
 
       const fullRange = new vscode.Range(
         document.positionAt(0),
@@ -78,6 +94,23 @@ export const registerCommands = (context: vscode.ExtensionContext): void => {
       await editor.edit(editBuilder => {
         editBuilder.replace(fullRange, next);
       });
+
+      // 二次校验：格式化结果是否被其他操作（例如 formatOnSave/其他扩展）覆盖
+      try {
+        const afterText = editor.document.getText();
+        const afterFirstNonEmpty = afterText.split(/\r?\n/).find(l => l.trim().length > 0) ?? '';
+        const persisted = expectedFirstLineIndent.length === 0
+          ? true
+          : (afterFirstNonEmpty ? afterFirstNonEmpty.startsWith(expectedFirstLineIndent) : true);
+
+        if (!persisted) {
+          vscode.window.showWarningMessage(
+            'Novel Helper：已生成段首缩进，但写入后又被覆盖/清理了。请检查是否开启了 formatOnSave，或是否有其他 formatter/保存动作在改写文本。'
+          );
+        }
+      } catch {
+        // ignore
+      }
     }],
     ['novel-helper.openConfigPanel', () => vscode.commands.executeCommand('novel-helper.showConfigPanel')]
   ];

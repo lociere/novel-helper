@@ -1,41 +1,8 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig } from '../utils/config';
-import { hardWrapParagraph } from './hardWrapManager';
+import { getVSCodeConfig, getEditorWrapSettings } from '../utils/config';
 
-type FormatConfig = {
-  paragraphIndent: number;
-  overallIndent: number;
-  lineSpacing: number;
-  hardWrapOnFormat: boolean;
-  autoHardWrapColumn: number;
-};
-
-export const formatText = (text: string, config: FormatConfig): string => {
-  // 1. 提取有效段落（处理掉所有原有空行和首尾空格）
-  const paragraphs = text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
-  if (paragraphs.length === 0) {
-    return '';
-  }
-
-  // 2. 确定分隔符
-  // config.lineSpacing 表示段落间的“空行数”
-  // 0 => 换行 (\n)
-  // 1 => 换行+空一行 (\n\n)
-  const separator = '\n'.repeat(Math.max(1, config.lineSpacing + 1));
-  const overallIndentString = ' '.repeat(Math.max(0, config.overallIndent || 0));
-  const firstLineIndentString = overallIndentString + ' '.repeat(Math.max(0, config.paragraphIndent || 0));
-
-  const hardWrapColumn = Number(config.autoHardWrapColumn || 0);
-  const hardWrapOnFormat = Boolean(config.hardWrapOnFormat) && hardWrapColumn > 0;
-
-  // 3. 重新组装文档
-  return paragraphs
-    .map(p => hardWrapOnFormat
-      ? hardWrapParagraph(p, hardWrapColumn, firstLineIndentString, overallIndentString)
-      : (firstLineIndentString + p)
-    )
-    .join(separator);
-};
+import { formatText } from './formatCore';
+export { formatText, type FormatConfig } from './formatCore';
 
 /** 格式化管理器 */
 export class Formatter {
@@ -54,12 +21,34 @@ export class Formatter {
         const config = getVSCodeConfig();
         const text = document.getText();
 
+        const wrap = getEditorWrapSettings(document);
+        const cfg = getVSCodeConfig();
+
+        const effectiveLimit = (() => {
+          if (cfg.autoSyncWordWrapColumn) {
+            // 跟随 VS Code 的 wordWrapColumn
+            return cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0
+              ? cfg.editorWordWrapColumn
+              : wrap.wordWrapColumn;
+          }
+          // 使用插件的自动硬换行阈值
+          if (cfg.autoHardWrapColumn && cfg.autoHardWrapColumn > 0) { return cfg.autoHardWrapColumn; }
+          if (cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0) { return cfg.editorWordWrapColumn; }
+          return 0;
+        })();
+
         const newText = formatText(text, {
           paragraphIndent: config.paragraphIndent,
           overallIndent: config.overallIndent,
           lineSpacing: config.lineSpacing,
+          intraLineSpacing: config.intraLineSpacing,
+          paragraphSplitMode: config.paragraphSplitMode,
+          paragraphSplitOnIndentedLine: config.paragraphSplitOnIndentedLine,
+          mergeSoftWrappedLines: config.mergeSoftWrappedLines,
           hardWrapOnFormat: config.hardWrapOnFormat,
-          autoHardWrapColumn: config.autoHardWrapColumn
+          useFullWidthIndent: config.useFullWidthIndent,
+          lineCharLimit: effectiveLimit,
+          tabSize: wrap.tabSize
         });
 
         // 4. 全量替换（确保彻底符合格式）

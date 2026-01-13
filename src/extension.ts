@@ -7,7 +7,7 @@ import { registerHighlighter } from './highlighter';
 import { registerStats } from './stats';
 import { registerFormatter } from './formatter';
 import { hideConfigFileInExplorer } from './utils/config';
-import { syncIndentGuidesSetting } from './utils/editorSettings';
+import { syncIndentGuidesSetting, syncWordWrapSetting } from './utils/editorSettings';
 
 /**
  * 扩展激活入口
@@ -45,10 +45,19 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // 同步缩进参考线显示（避免出现竖线）
   void syncIndentGuidesSetting();
+  // 同步 VS Code 自动换行列宽（可选）
+  void syncWordWrapSetting();
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('novel-helper.autoDisableIndentGuides')) {
         void syncIndentGuidesSetting();
+      }
+      if (
+        e.affectsConfiguration('novel-helper.autoSyncWordWrapColumn')
+        || e.affectsConfiguration('novel-helper.editorWordWrapColumn')
+        || e.affectsConfiguration('novel-helper.autoHardWrapColumn')
+      ) {
+        void syncWordWrapSetting();
       }
     })
   );
