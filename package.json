@@ -2,7 +2,7 @@
   "name": "novel-helper",
   "displayName": "Novel Helper",
   "description": "VSCode辅助写小说的插件，支持目录管理、高亮、统计、排版等功能",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "engines": {
     "vscode": "^1.80.0"
   },
