@@ -1,10 +1,19 @@
 import * as vscode from 'vscode';
 import { initWorkspace } from './initWorkspace';
+import { closeWorkspace } from './closeWorkspace';
 import { createItem, CreateItemType } from './createItems';
-import { getVSCodeConfig, getEffectiveWrapSettings } from '../utils/config';
+import { getVSCodeConfig, getEffectiveWrapSettings, isWorkspaceInitialized } from '../utils/config';
 import { formatText } from '../formatter/formatter';
 
 const SUPPORTED_FORMAT_LANGS = new Set(['plaintext', 'markdown']);
+
+const ensureInitialized = (): boolean => {
+  if (isWorkspaceInitialized()) {
+    return true;
+  }
+  vscode.window.showWarningMessage('Novel Helper：当前工作区未初始化，请先运行 "Novel Helper: 开启小说工作区"。');
+  return false;
+};
 
 const canFormatByNovelHelper = (doc: vscode.TextDocument): boolean => {
   if (doc.uri.scheme !== 'file') { return false; }
@@ -43,11 +52,25 @@ function safeExec<TArgs extends unknown[], TResult>(fn: (...args: TArgs) => TRes
  * 注册所有命令
  * @param context 扩展上下文
  */
-export const registerCommands = (context: vscode.ExtensionContext): void => {
+export const registerCommands = (
+  context: vscode.ExtensionContext,
+  opts?: { onInitialized?: () => void; onClosed?: () => void }
+): void => {
   const registrations: Array<[string, (...args: any[]) => any]> = [
-    ['novel-helper.initWorkspace', initWorkspace],
-    ['novel-helper.createItem', (type: CreateItemType, parentPath?: string) => createItem(type, parentPath)],
+    ['novel-helper.initWorkspace', async () => {
+      await initWorkspace();
+      opts?.onInitialized?.();
+    }],
+    ['novel-helper.closeWorkspace', async () => {
+      await closeWorkspace();
+      opts?.onClosed?.();
+    }],
+    ['novel-helper.createItem', (type: CreateItemType, parentPath?: string) => {
+      if (!ensureInitialized()) { return; }
+      return createItem(type, parentPath);
+    }],
     ['novel-helper.formatDocument', async () => {
+      if (!ensureInitialized()) { return; }
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.showErrorMessage('未打开编辑器');
@@ -115,7 +138,10 @@ export const registerCommands = (context: vscode.ExtensionContext): void => {
         // ignore
       }
     }],
-    ['novel-helper.openConfigPanel', () => vscode.commands.executeCommand('novel-helper.showConfigPanel')]
+    ['novel-helper.openConfigPanel', () => {
+      if (!ensureInitialized()) { return; }
+      return vscode.commands.executeCommand('novel-helper.showConfigPanel');
+    }]
   ];
 
   registrations.forEach(([command, handler]) => {

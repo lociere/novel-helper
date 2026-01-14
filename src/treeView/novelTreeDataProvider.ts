@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { NovelTreeItem } from './treeItem';
-import { getWorkspaceRoot, isNovelWorkspace, countWords } from '../utils/helpers';
+import { getWorkspaceRoot, countWords } from '../utils/helpers';
 import { getDirFiles } from '../utils/fileSystem';
-import { CONFIG_FILE_NAME, getConfigFilePath } from '../utils/config';
+import { CONFIG_FILE_NAME, getConfigFilePath, isWorkspaceInitialized } from '../utils/config';
 
 const TEXT_EXTS = ['.txt', '.md'];
 
@@ -25,11 +25,11 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
 
   /** 获取子节点 */
   getChildren(element?: NovelTreeItem): vscode.ProviderResult<NovelTreeItem[]> {
-    // 非小说工作区，提示初始化
-    if (!isNovelWorkspace()) {
+    // 非已开启工作区：提供一键开启入口（树视图通常不会在未开启时注册，但这里做兜底）
+    if (!isWorkspaceInitialized()) {
       return [
         new NovelTreeItem(
-          '未初始化小说工作区，点击初始化',
+          '未开启小说工作区，点击开启',
           'create-item',
           vscode.TreeItemCollapsibleState.None,
           undefined,
@@ -39,7 +39,10 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
       ];
     }
 
-    const root = getWorkspaceRoot()!;
+    const root = getWorkspaceRoot();
+    if (!root) {
+      return [];
+    }
 
     // 1. 根节点（大纲、设定、素材、正文）
     if (!element) {
@@ -97,12 +100,7 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
    */
   private getDirectoryContent(dirPath: string): NovelTreeItem[] {
     const configFullPath = getConfigFilePath();
-    let allFiles: string[] = [];
-    try {
-      allFiles = getDirFiles(dirPath);
-    } catch {
-      return [];
-    }
+    const allFiles = getDirFiles(dirPath);
 
     const children: NovelTreeItem[] = [];
 

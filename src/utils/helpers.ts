@@ -1,14 +1,8 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import * as fs from 'fs';
 import { readConfig } from './config';
 
-/**
- * 统计文本字数（优化版：适配中文小说计数规则）
- * 规则：中文字符算1个，英文单词算1个，数字算1个
- * @param text 待统计的文本
- * @returns 精准计数字数
- */
+/** 统计文本字数：中文字符/中文标点按 1，英文单词/数字按 1。 */
 export const countWords = (text: string): number => {
   if (!text || typeof text !== 'string') {
     return 0;
@@ -16,22 +10,16 @@ export const countWords = (text: string): number => {
 
   let totalCount = 0;
 
-  // 1. 匹配中文字符及中文标点 (扩展范围)
-  // \u4e00-\u9fa5: 基本汉字
-  // \u3000-\u303f: CJK 标点
-  // \uff00-\uffef: 全角ASCII、全角标点
-  // \u2000-\u206f: 常用标点 (如及 em dash)
+  // 匹配中文字符及常见中文/全角标点（扩展范围）
   const chineseAndPunctuation = text.match(/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef\u2000-\u206f]/g);
   if (chineseAndPunctuation) {
     totalCount += chineseAndPunctuation.length;
   }
 
-  // 2. 移除已被上述正则匹配掉的字符，避免重复计算
-  // 这里采用简化的互斥逻辑：英文单词和数字通过 \w 匹配，但在中文环境下需要小心
-  // 将中文及中文标点替换为空，再统计剩下的单词/数字
+  // 将中文及中文标点替换为空，再统计剩下的单词/数字，避免重复计算
   const remainingText = text.replace(/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef\u2000-\u206f]/g, ' ');
 
-  // 3. 匹配英文单词和数字 (连续的字母数字下划线算作 1 个词)
+  // 匹配英文单词和数字（连续的字母/数字/下划线/短横线算 1 个词）
   const wordMatches = remainingText.match(/[a-zA-Z0-9_\-]+/g);
   if (wordMatches) {
     totalCount += wordMatches.length;
@@ -40,10 +28,7 @@ export const countWords = (text: string): number => {
   return totalCount;
 };
 
-/**
- * 获取工作区根路径（兼容多工作区）
- * @returns 根路径字符串 | undefined
- */
+/** 获取工作区根路径：优先使用配置中的 workspacePath，否则回退到第一个 workspace folder。 */
 export const getWorkspaceRoot = (): string | undefined => {
   // 优先使用 config 中保存的 workspacePath（初始化后会写入），否则回退到当前打开的第一个工作区
   try {
@@ -62,14 +47,7 @@ export const getWorkspaceRoot = (): string | undefined => {
   return folders[0].uri.fsPath;
 };
 
-/**
- * 获取当前时间戳（毫秒）
- */
-export const getCurrentTimestamp = (): number => Date.now();
-
-/**
- * 将毫秒格式化为易读字符串（例如：1天 2小时 3分钟）
- */
+/** 将毫秒格式化为易读字符串（例如：1天 2小时 3分钟）。 */
 export const formatTime = (ms: number): string => {
   if (!ms || ms <= 0) { return '0秒'; }
   const totalSeconds = Math.floor(ms / 1000);
@@ -85,23 +63,10 @@ export const formatTime = (ms: number): string => {
   return parts.join(' ');
 };
 
-/**
- * 计算写作速度（字/分钟），输入时间为毫秒
- */
+/** 计算写作速度（字/分钟），输入时间为毫秒。 */
 export const calculateWritingSpeed = (words: number, ms: number): number => {
   if (!ms || ms <= 0) { return 0; }
   const minutes = ms / 60000;
   if (minutes <= 0) { return 0; }
   return Math.round(words / minutes);
-};
-
-/**
- * 判断当前工作区是否为已初始化的小说工作区（存在关键目录）
- */
-export const isNovelWorkspace = (): boolean => {
-  const requiredDirs = ['大纲', '设定', '素材', '正文'];
-
-  const root = getWorkspaceRoot();
-  if (!root) { return false; }
-  return requiredDirs.every(d => fs.existsSync(path.join(root, d)));
 };

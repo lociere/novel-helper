@@ -21,7 +21,7 @@ const getDebounceDelayMs = (textLength: number): number => {
  * 注册小说树视图
  * @param context 扩展上下文
  */
-export const registerTreeView = (context: vscode.ExtensionContext): void => {
+export const registerTreeView = (context: vscode.ExtensionContext): vscode.Disposable => {
   const treeDataProvider = new NovelTreeDataProvider();
   const treeView = vscode.window.createTreeView('novelTreeView', {
     treeDataProvider,
@@ -29,20 +29,22 @@ export const registerTreeView = (context: vscode.ExtensionContext): void => {
   });
 
   // 注册刷新命令
-  context.subscriptions.push(vscode.commands.registerCommand('novelTreeView.refresh', () => {
+  const refreshCmd = vscode.commands.registerCommand('novelTreeView.refresh', () => {
     treeDataProvider.refresh();
-  }));
+  });
+  context.subscriptions.push(refreshCmd);
 
   context.subscriptions.push(treeView);
 
   // 监听文件保存（立即刷新）
-  context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(() => {
+  const onSave = vscode.workspace.onDidSaveTextDocument(() => {
     treeDataProvider.refresh();
-  }));
+  });
+  context.subscriptions.push(onSave);
 
   // 监听内容变化（防抖刷新，用于实时更新字数）
   let debounceTimer: NodeJS.Timeout | undefined;
-  context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
+  const onChange = vscode.workspace.onDidChangeTextDocument(e => {
     // 仅关注相关文本文件，且树视图可见时再刷新，降低不必要的开销
     if (!treeView.visible) { return; }
     if (isSupportedTextDoc(e.document)) {
@@ -57,5 +59,8 @@ export const registerTreeView = (context: vscode.ExtensionContext): void => {
         treeDataProvider.refresh();
       }, getDebounceDelayMs(textLength));
     }
-  }));
+  });
+  context.subscriptions.push(onChange);
+
+  return vscode.Disposable.from(treeView, refreshCmd, onSave, onChange);
 };

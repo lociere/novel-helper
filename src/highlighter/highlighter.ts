@@ -97,6 +97,7 @@ export class Highlighter {
     });
 
     context.subscriptions.push(addHighlightDisposable);
+    this.disposables.push(addHighlightDisposable);
 
     // 从设定文件中添加高亮（会持久化）
     const addFromSettingDisposable = vscode.commands.registerCommand('novel-helper.addHighlightFromSelection', () => {
@@ -122,6 +123,7 @@ export class Highlighter {
     });
 
     context.subscriptions.push(addFromSettingDisposable);
+    this.disposables.push(addFromSettingDisposable);
 
     // 跳转到高亮源文件
     const jumpDisposable = vscode.commands.registerCommand('novel-helper.jumpToHighlightSource', async (arg?: unknown) => {
@@ -190,6 +192,7 @@ export class Highlighter {
     });
 
     context.subscriptions.push(jumpDisposable);
+    this.disposables.push(jumpDisposable);
 
     // 移除高亮
     const removeDisposable = vscode.commands.registerCommand('novel-helper.removeHighlight', async (arg?: unknown) => {
@@ -245,6 +248,7 @@ export class Highlighter {
     });
 
     context.subscriptions.push(removeDisposable);
+    this.disposables.push(removeDisposable);
   }
 
   private persistHighlightItem(text: string, selection: vscode.Selection, docPath: string, infoMessage: string): void {

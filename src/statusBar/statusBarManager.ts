@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getVSCodeConfig, readConfig, writeConfig } from '../utils/config';
-import { countWords, formatTime, calculateWritingSpeed, getCurrentTimestamp } from '../utils/helpers';
+import { countWords, formatTime, calculateWritingSpeed } from '../utils/helpers';
 
 type StatusBarKey = 'wordCount' | 'format' | 'speed' | 'time';
 type StatusBarItems = Record<StatusBarKey, vscode.StatusBarItem>;
@@ -84,7 +84,7 @@ export class StatusBarManager {
   private handleActiveEditorChange(editor: vscode.TextEditor | undefined): void {
     if (!editor) { return; }
     
-    this.editStartTime = getCurrentTimestamp();
+    this.editStartTime = Date.now();
     const wordCount = countWords(editor.document.getText());
     
     // 更新会话开始状态，用于计算本次速度
@@ -112,7 +112,7 @@ export class StatusBarManager {
    */
   private handleDocumentClose(): void {
     const config = readConfig();
-    const currentTime = getCurrentTimestamp();
+    const currentTime = Date.now();
     const duration = currentTime - config.editStartTime;
     writeConfig({ totalEditTime: config.totalEditTime + duration });
   }
@@ -124,7 +124,7 @@ export class StatusBarManager {
     this.currentWordCount = countWords(text);
 
     // 计算码字速度
-    const currentTime = getCurrentTimestamp();
+    const currentTime = Date.now();
     const duration = currentTime - this.editStartTime; // 本次会话时长
     const wordChange = this.currentWordCount - config.lastWordCount; // 本次字数变化
     const speed = calculateWritingSpeed(wordChange, duration);

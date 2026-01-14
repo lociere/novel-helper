@@ -2,7 +2,7 @@
   "name": "novel-helper",
   "displayName": "Novel Helper",
   "description": "VSCode辅助写小说的插件，支持目录管理、高亮、统计、排版等功能",
-  "version": "0.0.5",
+  "version": "0.0.9",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -10,66 +10,69 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:.novel-helper.json",
-    "onLanguage:plaintext",
-    "onLanguage:markdown",
-    "onCommand:novel-helper.formatDocument",
-    "onCommand:novel-helper.openConfigPanel",
-    "onCommand:novel-helper.showConfigPanel",
-    "onCommand:novel-helper.initWorkspace",
-    "onCommand:novel-helper.createItem",
-    "onCommand:novel-helper.addHighlight",
-    "onCommand:novel-helper.addHighlightFromSelection",
-    "onCommand:novel-helper.jumpToHighlightSource",
-    "onCommand:novel-helper.removeHighlight"
+    "workspaceContains:.novel-helper.json"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "novel-helper.initWorkspace",
-        "title": "Novel Helper: 初始化小说工作区",
+        "title": "Novel Helper: 开启小说工作区",
         "category": "Novel Helper"
+      },
+      {
+        "command": "novel-helper.closeWorkspace",
+        "title": "Novel Helper: 关闭小说工作区",
+        "category": "Novel Helper",
+        "enablement": "novelHelper.initialized == true"
       },
       {
         "command": "novel-helper.createItem",
         "title": "Novel Helper: 创建小说项",
-        "category": "Novel Helper"
+        "category": "Novel Helper",
+        "enablement": "novelHelper.initialized == true"
       },
       {
         "command": "novel-helper.formatDocument",
         "title": "Novel Helper: 格式化文档",
-        "category": "Novel Helper"
+        "category": "Novel Helper",
+        "enablement": "novelHelper.initialized == true"
       },
       {
         "command": "novel-helper.openConfigPanel",
         "title": "Novel Helper: 打开配置面板",
-        "category": "Novel Helper"
+        "category": "Novel Helper",
+        "enablement": "novelHelper.initialized == true"
       },
       {
         "command": "novel-helper.showConfigPanel",
         "title": "Novel Helper: 显示配置面板",
-        "category": "Novel Helper"
+        "category": "Novel Helper",
+        "enablement": "novelHelper.initialized == true"
       },
       {
         "command": "novel-helper.addHighlight",
         "title": "Novel Helper: 添加高亮",
-        "category": "Novel Helper"
+        "category": "Novel Helper",
+        "enablement": "novelHelper.initialized == true"
       },
       {
         "command": "novel-helper.addHighlightFromSelection",
         "title": "Novel Helper: 在设定中添加高亮",
-        "category": "Novel Helper"
+        "category": "Novel Helper",
+        "enablement": "novelHelper.initialized == true"
       },
       {
         "command": "novel-helper.jumpToHighlightSource",
         "title": "Novel Helper: 跳转到高亮源",
-        "category": "Novel Helper"
+        "category": "Novel Helper",
+        "enablement": "novelHelper.initialized == true"
       },
       {
         "command": "novel-helper.removeHighlight",
         "title": "Novel Helper: 移除高亮",
-        "category": "Novel Helper"
+        "category": "Novel Helper",
+        "enablement": "novelHelper.initialized == true"
       }
     ],
     "views": {
@@ -86,27 +89,27 @@
       "editor/context": [
         {
           "command": "novel-helper.addHighlight",
-          "when": "editorHasSelection",
+          "when": "novelHelper.initialized == true && editorHasSelection",
           "group": "1_novel_helper"
         },
         {
           "command": "novel-helper.jumpToHighlightSource",
-          "when": "editorTextFocus",
+          "when": "novelHelper.initialized == true && editorTextFocus",
           "group": "1_novel_helper"
         },
         {
           "command": "novel-helper.removeHighlight",
-          "when": "editorTextFocus",
+          "when": "novelHelper.initialized == true && editorTextFocus",
           "group": "1_novel_helper"
         },
         {
           "command": "novel-helper.openConfigPanel",
-          "when": "editorTextFocus",
+          "when": "novelHelper.initialized == true && editorTextFocus",
           "group": "1_novel_helper"
         },
         {
           "command": "novel-helper.formatDocument",
-          "when": "editorTextFocus",
+          "when": "novelHelper.initialized == true && editorTextFocus",
           "group": "1_novel_helper"
         }
       ]
@@ -193,6 +196,11 @@
           "type": "boolean",
           "default": false,
           "description": "是否使用全角空格（U+3000）作为缩进单位（中文排版更明显）。默认关闭（使用半角空格）。"
+        },
+        "novel-helper.workspacePath": {
+          "type": "string",
+          "default": "",
+          "description": "Novel Helper 记录的工作区根路径。通常由初始化/关闭工作区命令自动维护，无需手动修改。"
         }
       }
     }

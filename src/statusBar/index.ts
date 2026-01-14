@@ -5,7 +5,8 @@ import { StatusBarManager } from './statusBarManager';
  * 注册状态栏
  * @param context 扩展上下文
  */
-export const registerStatusBar = (context: vscode.ExtensionContext): void => {
+export const registerStatusBar = (context: vscode.ExtensionContext): vscode.Disposable => {
   const statusBarManager = new StatusBarManager(context);
   context.subscriptions.push(statusBarManager);
+  return statusBarManager;
 };

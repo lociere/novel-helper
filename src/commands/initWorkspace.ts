@@ -2,10 +2,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { createDir, createFile } from '../utils/fileSystem';
 import { getWorkspaceRoot } from '../utils/helpers';
-import { writeConfig } from '../utils/config';
+import { updateNovelHelperSetting } from '../utils/config';
 
 /**
- * 初始化小说工作区
+ * 开启小说工作区：创建标准目录结构与示例文件，并写入 Novel Helper 配置。
  */
 export const initWorkspace = async (): Promise<void> => {
   const root = getWorkspaceRoot();
@@ -33,8 +33,8 @@ export const initWorkspace = async (): Promise<void> => {
   createFile(path.join(root, '设定/角色设定/主角.md'), '# 主角设定\n\n');
   createFile(path.join(root, '正文/分卷1/第一章.txt'), '');
 
-  // 写入配置文件
-  writeConfig({ workspacePath: root });
+  // 写入配置（同时同步写入工作区 settings）
+  await updateNovelHelperSetting('workspacePath', root, vscode.ConfigurationTarget.Workspace);
 
   // 更新工作区设置：隐藏无关文件以减少其他插件干扰
   const config = vscode.workspace.getConfiguration();
@@ -63,7 +63,7 @@ export const initWorkspace = async (): Promise<void> => {
   const currentExcludes = config.get<Record<string, boolean>>('files.exclude') || {};
   await config.update('files.exclude', { ...currentExcludes, ...excludes }, vscode.ConfigurationTarget.Workspace);
 
-  vscode.window.showInformationMessage('小说工作区初始化成功！已自动屏蔽代码文件。');
+  vscode.window.showInformationMessage('小说工作区已开启！已自动屏蔽代码文件。');
 
   // 刷新资源管理器：尝试多个可能的命令并捕获错误以防命令不存在
   const refreshCommands = [
@@ -74,16 +74,14 @@ export const initWorkspace = async (): Promise<void> => {
   for (const cmd of refreshCommands) {
     try {
       // 某些命令在不同版本或平台上可能不存在，因此用 try/catch 包裹
-      // 使用 await 避免未处理的 promise 拒绝
-       
       await vscode.commands.executeCommand(cmd);
       break;
     } catch (err) {
-      // 如果命令不存在或执行失败，继续尝试下一个命令
-      // 最终若都失败则静默忽略，避免抛出未处理异常
-      // 仅在开发者工具里打印以便调试
-       
+      // 如果命令不存在或执行失败，继续尝试下一个命令；最终若都失败则静默忽略
       console.warn(`刷新资源管理器命令 '${cmd}' 无法执行，已忽略。`, err);
     }
   }
+
+  // 标记已初始化，供命令显隐控制
+  void vscode.commands.executeCommand('setContext', 'novelHelper.initialized', true);
 };

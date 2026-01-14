@@ -45,13 +45,8 @@ const resolveTargetDir = (basePath: string | undefined, configBaseDir: string, w
 };
 
 
-/**
- * 创建小说相关项目（总大纲、分大纲、角色设定等）
- * @param type 项目类型
- * @param name 项目名称
- * @param basePath 可选：用于在指定路径下创建（默认工作区根路径）
- */
-export const createItems = (type: CreateItemType, name: string, basePath?: string): void => {
+/** 创建文件/目录的核心逻辑（命令交互在 createItem 中处理）。 */
+const createItemCore = (type: CreateItemType, name: string, basePath?: string): void => {
   const workspaceRoot = getWorkspaceRoot();
   if (!workspaceRoot) {
     vscode.window.showErrorMessage('未找到工作区根路径，请先打开小说工作区！');
@@ -131,19 +126,7 @@ export const createItem = (type: CreateItemType, parentPath?: string): void => {
     }
   }).then(name => {
     if (name) {
-      createItems(type, name, parentPath);
+      createItemCore(type, name, parentPath);
     }
   });
-};
-
-/**
- * 注册创建项目命令
- * @param context 扩展上下文
- */
-export const registerCreateItemsCommand = (context: vscode.ExtensionContext): void => {
-  const disposable = vscode.commands.registerCommand('novel-helper.createItem', (type: CreateItemType, parentPath?: string) => {
-    createItem(type, parentPath);
-  });
-
-  context.subscriptions.push(disposable);
 };

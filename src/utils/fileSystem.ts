@@ -46,9 +46,8 @@ export const createFile = (filePath: string, content = ''): boolean => {
   try {
     // 检查文件是否已存在
     if (fs.existsSync(filePath)) {
-      const fileName = path.basename(filePath);
-      vscode.window.showWarningMessage(`文件已存在：${fileName}`);
-      return false;
+      // 已存在即视为成功，避免打断流程
+      return true;
     }
 
     // 确保父目录存在
@@ -67,55 +66,6 @@ export const createFile = (filePath: string, content = ''): boolean => {
 };
 
 /**
- * 读取文件内容（优化版：增加错误处理）
- * @param filePath 文件路径
- * @returns 文件内容（读取失败返回空字符串）
- */
-export const readFile = (filePath: string): string => {
-  if (!filePath || !fs.existsSync(filePath)) {
-    return '';
-  }
-
-  try {
-    return fs.readFileSync(filePath, 'utf-8');
-  } catch (error) {
-    const errMsg = (error as Error).message;
-    vscode.window.showErrorMessage(`读取文件失败：${errMsg}`);
-    console.error('[Novel Helper] 读取文件错误:', error);
-    return '';
-  }
-};
-
-/**
- * 写入文件内容（优化版：增加错误处理+友好提示）
- * @param filePath 文件路径
- * @param content 要写入的内容
- */
-export const writeFile = (filePath: string, content: string): void => {
-  if (!filePath || typeof filePath !== 'string') {
-    vscode.window.showErrorMessage('文件路径不能为空且必须为字符串！');
-    return;
-  }
-
-  try {
-    // 确保父目录存在
-    const parentDir = path.dirname(filePath);
-    createDir(parentDir);
-
-    // 写入文件
-    fs.writeFileSync(filePath, content, 'utf-8');
-
-    // 友好提示
-    const fileName = path.basename(filePath);
-    vscode.window.showInformationMessage(`文件保存成功：${fileName}`);
-  } catch (error) {
-    const errMsg = (error as Error).message;
-    vscode.window.showErrorMessage(`文件保存失败：${errMsg}`);
-    console.error('[Novel Helper] 写入文件错误:', error);
-  }
-};
-
-/**
  * 读取目录下的文件列表
  * @param dirPath 目录路径
  * @returns 文件名称数组
@@ -128,8 +78,7 @@ export const getDirFiles = (dirPath: string): string[] => {
   try {
     return fs.readdirSync(dirPath);
   } catch (error) {
-    console.error('[Novel Helper] 读取目录失败:', error);
-    vscode.window.showErrorMessage(`读取目录失败：${(error as Error).message}`);
+    console.warn('[Novel Helper] 读取目录失败:', error);
     return [];
   }
 };

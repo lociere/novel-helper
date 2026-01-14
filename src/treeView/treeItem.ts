@@ -59,10 +59,10 @@ export class NovelTreeItem extends vscode.TreeItem {
         if (createType === 'init') {
           this.command = {
             command: 'novel-helper.initWorkspace',
-            title: '初始化小说工作区',
+            title: '开启小说工作区',
             arguments: []
           };
-          this.tooltip = '初始化小说工作区';
+          this.tooltip = '开启小说工作区';
         } else {
           // 常规创建项
           this.command = {

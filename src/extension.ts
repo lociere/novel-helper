@@ -4,10 +4,10 @@ import { registerTreeView } from './treeView';
 import { registerStatusBar } from './statusBar';
 import { registerPanel } from './panel';
 import { registerHighlighter } from './highlighter';
-import { registerStats } from './stats';
 import { registerFormatter } from './formatter';
-import { hideConfigFileInExplorer } from './utils/config';
+import { hideConfigFileInExplorer, isWorkspaceInitialized } from './utils/config';
 import { syncIndentGuidesSetting, syncWordWrapSetting } from './utils/editorSettings';
+import { addFeatureDisposable, disposeAllFeatures } from './utils/featureRegistry';
 
 /**
  * 扩展激活入口
@@ -16,39 +16,37 @@ import { syncIndentGuidesSetting, syncWordWrapSetting } from './utils/editorSett
 export function activate(context: vscode.ExtensionContext): void {
   console.log('novel-helper 已激活！');
 
-  // 注册功能模块的辅助函数
-  const registerModule = (name: string, registerFn: (ctx: vscode.ExtensionContext) => void) => {
+  const initialized = isWorkspaceInitialized();
+  void vscode.commands.executeCommand('setContext', 'novelHelper.initialized', initialized);
+  let featuresRegistered = false;
+
+  const registerModule = (name: string, registerFn: (ctx: vscode.ExtensionContext) => vscode.Disposable | void) => {
     try {
-      registerFn(context);
+      const d = registerFn(context);
+      if (d) { addFeatureDisposable(d); }
     } catch (e) {
       console.error(`[Novel Helper] register${name} 失败：`, e);
       vscode.window.showErrorMessage(`Novel Helper: 注册${name}失败，请查看开发者控制台。`);
     }
   };
 
-  // 按顺序注册各模块
-  registerModule('Commands', registerCommands);
-  registerModule('TreeView', registerTreeView);
-  registerModule('StatusBar', registerStatusBar);
-  registerModule('Panel', registerPanel);
-  registerModule('Highlighter', registerHighlighter);
-  registerModule('Stats', registerStats);
-  registerModule('Formatter', registerFormatter);
+  const registerFeatures = () => {
+    if (featuresRegistered) { return; }
+    featuresRegistered = true;
 
-  // 隐藏工作区内的插件配置文件，避免干扰资源管理器视图
-  try {
-    hideConfigFileInExplorer();
-  } catch (e) {
-    // 忽略非关键错误
-    console.warn('[Novel Helper] 隐藏配置文件失败:', e);
-  }
+    registerModule('TreeView', registerTreeView);
+    registerModule('StatusBar', registerStatusBar);
+    registerModule('Panel', registerPanel);
+    registerModule('Highlighter', registerHighlighter);
+    registerModule('Formatter', registerFormatter);
 
-  // 同步缩进参考线显示（避免出现竖线）
-  void syncIndentGuidesSetting();
-  // 同步 VS Code 自动换行列宽（可选）
-  void syncWordWrapSetting();
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration(e => {
+    try {
+      hideConfigFileInExplorer();
+    } catch (e) {
+      console.warn('[Novel Helper] 隐藏配置文件失败:', e);
+    }
+
+    const cfgListener = vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('novel-helper.autoDisableIndentGuides')) {
         void syncIndentGuidesSetting();
       }
@@ -59,8 +57,29 @@ export function activate(context: vscode.ExtensionContext): void {
       ) {
         void syncWordWrapSetting();
       }
-    })
-  );
+    });
+    addFeatureDisposable(cfgListener);
+
+    void syncIndentGuidesSetting();
+    void syncWordWrapSetting();
+  };
+
+  const unregisterFeatures = () => {
+    disposeAllFeatures();
+    featuresRegistered = false;
+  };
+
+  // 始终注册命令（内部已对未初始化场景做提示/限制），并传入回调以便初始化后补注册功能，关闭时卸载
+  registerModule('Commands', ctx => registerCommands(ctx, {
+    onInitialized: registerFeatures,
+    onClosed: unregisterFeatures
+  }));
+
+  if (initialized) {
+    registerFeatures();
+  } else {
+    console.log('novel-helper：检测到工作区未初始化，仅注册命令模块。');
+  }
 }
 
 /**
@@ -68,4 +87,6 @@ export function activate(context: vscode.ExtensionContext): void {
  */
 export function deactivate(): void {
   console.log('novel-helper 已停用！');
+  // 确保停用时清理功能模块
+  try { disposeAllFeatures(); } catch { /* ignore */ }
 }

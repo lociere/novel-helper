@@ -343,3 +343,47 @@ export const hideConfigFileInExplorer = (): void => {
     // 忽略配置更新失败
   }
 };
+
+/** 删除工作区配置文件（.novel-helper.json），若不存在则跳过 */
+export const deleteConfigFile = (): void => {
+  const configPath = getConfigFilePath();
+  if (!configPath) { return; }
+  try {
+    if (fs.existsSync(configPath)) {
+      fs.unlinkSync(configPath);
+    }
+  } catch {
+    vscode.window.showErrorMessage('删除配置文件失败');
+  }
+};
+
+/** 清除工作区 settings 中的 novel-helper.* 配置 */
+export const clearNovelHelperWorkspaceSettings = async (target: vscode.ConfigurationTarget = vscode.ConfigurationTarget.Workspace): Promise<void> => {
+  const config = vscode.workspace.getConfiguration('novel-helper');
+  const keys = Object.keys(defaultConfig) as (keyof NovelHelperConfig)[];
+
+  for (const key of keys) {
+    try {
+      await config.update(key as string, undefined, target);
+    } catch {
+      // ignore per-key failure to continue clearing others
+    }
+  }
+};
+
+/** 判断当前工作区是否已通过 Novel Helper 初始化（存在配置文件） */
+export const isWorkspaceInitialized = (): boolean => {
+  const configPath = getConfigFilePath();
+  if (!configPath || !fs.existsSync(configPath)) { return false; }
+
+  const currentRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!currentRoot) { return false; }
+
+  try {
+    const content = fs.readFileSync(configPath, 'utf-8');
+    const parsed = JSON.parse(content) as Partial<NovelHelperConfig>;
+    return typeof parsed.workspacePath === 'string' && parsed.workspacePath === currentRoot;
+  } catch {
+    return false;
+  }
+};
