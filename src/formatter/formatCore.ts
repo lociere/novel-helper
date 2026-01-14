@@ -240,25 +240,26 @@ export const formatText = (text: string, config: FormatConfig): string => {
         return;
       }
 
-      // 只有当“会软换行”（包含缩进后的整行列数超过阈值）才拆分
-      // 说明：VS Code/Monaco 的 wordWrapColumn 从行首开始计数（更接近 UTF-16 列数），因此这里把缩进也算入阈值。
-      if (stringVSCodeColumns(baseIndent + content, tabSize) <= limit) {
-        outLines.push(baseIndent + content);
-        return;
-      }
-
+      // 先计算首行与续行的可用列宽（扣除缩进列数）
       const firstIndent = (lineIndex === 0) ? firstLineIndent : continuationIndent;
       const firstLimit = Math.max(1, limit - stringVSCodeColumns(firstIndent, tabSize));
       const contLimit = Math.max(1, limit - stringVSCodeColumns(continuationIndent, tabSize));
+
+      // 若内容列数不超过首行可用列宽，直接输出（包含缩进）
+      if (stringVSCodeColumns(content, tabSize) <= firstLimit) {
+        outLines.push(baseIndent + content);
+        return;
+      }
 
       const firstParts = splitLineByLimit(content, firstLimit);
       if (firstParts.length > 0) {
         outLines.push(firstIndent + firstParts[0]);
       }
 
-      for (let i = 1; i < firstParts.length; i++) {
-        const more = splitLineByLimit(firstParts[i], contLimit);
-        for (const seg of more) {
+      const remainder = firstParts.slice(1).join('');
+      if (remainder) {
+        const contParts = splitLineByLimit(remainder, contLimit);
+        for (const seg of contParts) {
           outLines.push(continuationIndent + seg);
         }
       }
