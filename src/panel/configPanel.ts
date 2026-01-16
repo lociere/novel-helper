@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig, NovelHelperConfig, getEffectiveWrapSettings, updateNovelHelperSetting } from '../utils/config';
+import { getVSCodeConfig, NovelHelperConfig, getEditorWrapSettings, updateNovelHelperSetting } from '../utils/config';
 
 /** 配置项类型 */
 interface ConfigItem {
@@ -34,8 +34,7 @@ const paragraphSplitModePresets: Array<{ label: string; value: 'anyBlankLine' | 
  */
 export const openConfigPanel = async (): Promise<void> => {
   const config = getVSCodeConfig();
-  const wrap = getEffectiveWrapSettings(config);
-  const resolvedWordWrapColumn = wrap.column;
+  const editorWrap = getEditorWrapSettings();
 
   // 一级：分类选择
   const categories: CategoryItem[] = [
@@ -66,15 +65,14 @@ export const openConfigPanel = async (): Promise<void> => {
     },
     {
       label: '换行与列宽',
-      description: '硬换行阀值与 VS Code 对齐',
+      description: '软换行列宽（wordWrapColumn）',
       buildItems: () => ([
-        { label: '格式化时硬换行', description: `当前值: ${config.hardWrapOnFormat ? '开启' : '关闭'}`, type: 'boolean', key: 'hardWrapOnFormat' },
-        { label: '同步 VS Code 自动换行列宽', description: `当前值: ${config.autoSyncWordWrapColumn ? '开启' : '关闭'}`, type: 'boolean', key: 'autoSyncWordWrapColumn' },
-        { label: 'VS Code 自动换行列宽（wordWrapColumn）', description: `当前值: ${config.editorWordWrapColumn}（当前生效: ${resolvedWordWrapColumn || 0}, tabSize: ${wrap.tabSize}）`, type: 'number', key: 'editorWordWrapColumn' },
-        { label: '自动硬换行阈值（插件）', description: `当前值: ${config.autoHardWrapColumn} (0 表示关闭)`, type: 'number', key: 'autoHardWrapColumn' },
-        { label: '查看 VS Code 换行设置（只读）', description: `wordWrap: ${wrap.editor.wordWrap}, wordWrapColumn: ${wrap.editor.wordWrapColumn}, tabSize: ${wrap.tabSize}`, type: 'action', action: async () => {
-          vscode.window.showInformationMessage(`VS Code: wordWrap=${wrap.editor.wordWrap}, column=${wrap.editor.wordWrapColumn}, tabSize=${wrap.tabSize}`);
-        } },
+        {
+          label: 'VS Code 自动换行列宽（wordWrapColumn）',
+          description: `当前值: ${config.editorWordWrapColumn}（VS Code 当前: ${editorWrap.wordWrapColumn}, wordWrap: ${editorWrap.wordWrap}）`,
+          type: 'number',
+          key: 'editorWordWrapColumn'
+        },
       ])
     },
     {

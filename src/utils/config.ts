@@ -46,11 +46,6 @@ export interface NovelHelperConfig {
    * 当某一行本身带段首缩进（看起来是新段开头）时，即使段落间没有空行，也强制从该行开始新段落。
    */
   paragraphSplitOnIndentedLine: boolean;
-  /**
-   * 将同一段内“只是为了换行而手动断行”的多行文字合并为一行，再按阈值重新硬换行。
-   * 仅在 hardWrapOnFormat 开启时生效。
-   */
-  mergeSoftWrappedLines: boolean;
   fontSize: number;
   highlightColor: string;
   /**
@@ -59,23 +54,8 @@ export interface NovelHelperConfig {
    */
   autoDisableIndentGuides: boolean;
   /**
-   * 是否在“格式化文档”时进行硬换行（插入真实换行符）。
-   * 默认关闭，避免改变既有行为。
-   */
-  hardWrapOnFormat: boolean;
-  /**
-   * 自动硬换行阈值（字符数）。
-   * 0 表示关闭。
-   */
-  autoHardWrapColumn: number;
-  /**
-   * 是否自动同步 VS Code 的显示换行设置（editor.wordWrap / editor.wordWrapColumn）。
-   * 仅写入工作区设置，不影响全局用户设置。
-   */
-  autoSyncWordWrapColumn: boolean;
-  /**
    * VS Code 显示换行列宽（editor.wordWrapColumn）。
-   * 0 表示跟随 autoHardWrapColumn（当启用 autoSyncWordWrapColumn 时）。
+    * 0 表示不主动覆盖 editor.wordWrapColumn（仅启用 wordWrapColumn 模式）。
    */
   editorWordWrapColumn: number;
   /**
@@ -101,13 +81,9 @@ const defaultConfig: NovelHelperConfig = {
   intraLineSpacing: 0,
   paragraphSplitMode: 'anyBlankLine',
   paragraphSplitOnIndentedLine: true,
-  mergeSoftWrappedLines: true,
   fontSize: 14,
   highlightColor: '#FFD700',
   autoDisableIndentGuides: false,
-  hardWrapOnFormat: false,
-  autoHardWrapColumn: 0,
-  autoSyncWordWrapColumn: false,
   editorWordWrapColumn: 0,
   useFullWidthIndent: false,
   highlightItems: {},
@@ -237,13 +213,9 @@ export const getVSCodeConfig = (): NovelHelperConfig => {
     intraLineSpacing: config.get('intraLineSpacing', Math.max(0, config.get('lineSpacing', 1) - 1)),
     paragraphSplitMode: config.get('paragraphSplitMode', 'anyBlankLine'),
     paragraphSplitOnIndentedLine: config.get('paragraphSplitOnIndentedLine', true),
-    mergeSoftWrappedLines: config.get('mergeSoftWrappedLines', true),
     fontSize: config.get('fontSize', 14),
     highlightColor: config.get('highlightColor', '#FFD700'),
     autoDisableIndentGuides: config.get('autoDisableIndentGuides', false),
-    hardWrapOnFormat: config.get('hardWrapOnFormat', false),
-    autoHardWrapColumn: config.get('autoHardWrapColumn', 0),
-    autoSyncWordWrapColumn: config.get('autoSyncWordWrapColumn', false),
     editorWordWrapColumn: config.get('editorWordWrapColumn', 0),
     useFullWidthIndent: config.get('useFullWidthIndent', false)
   };
@@ -277,18 +249,17 @@ export const getEditorWrapSettings = (doc?: vscode.TextDocument): {
 };
 
 export type EffectiveWrapSettings = {
-  /** 0 表示禁用阀值（不进行自动硬换行/不按阀值折行） */
+  /** 0 表示不覆盖列宽（仍可启用 editor.wordWrap=wordWrapColumn） */
   column: number;
   tabSize: number;
-  source: 'vscode' | 'novel-helper' | 'disabled';
+  source: 'vscode' | 'novel-helper';
   editor: ReturnType<typeof getEditorWrapSettings>;
 };
 
 /**
- * 计算“实际生效”的换行阀值与 tabSize。
- * 规则：
- * - 开启 autoSyncWordWrapColumn：优先使用 novel-helper.editorWordWrapColumn（>0）否则使用 VS Code editor.wordWrapColumn
- * - 未开启同步：优先使用 novel-helper.autoHardWrapColumn（>0），否则使用 novel-helper.editorWordWrapColumn（>0），否则 0
+ * 计算“建议写入 VS Code 的显示换行列宽”。
+ * - 当 novel-helper.editorWordWrapColumn > 0：使用该值
+ * - 否则：不覆盖列宽，返回 0（仅用于 UI 展示）
  */
 export const getEffectiveWrapSettings = (
   cfg: NovelHelperConfig,
@@ -296,22 +267,10 @@ export const getEffectiveWrapSettings = (
 ): EffectiveWrapSettings => {
   const editor = getEditorWrapSettings(doc);
 
-  if (cfg.autoSyncWordWrapColumn) {
-    const column = cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0
-      ? cfg.editorWordWrapColumn
-      : editor.wordWrapColumn;
-    return { column, tabSize: editor.tabSize, source: 'vscode', editor };
-  }
-
-  if (cfg.autoHardWrapColumn && cfg.autoHardWrapColumn > 0) {
-    return { column: cfg.autoHardWrapColumn, tabSize: editor.tabSize, source: 'novel-helper', editor };
-  }
-
   if (cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0) {
     return { column: cfg.editorWordWrapColumn, tabSize: editor.tabSize, source: 'novel-helper', editor };
   }
-
-  return { column: 0, tabSize: editor.tabSize, source: 'disabled', editor };
+  return { column: 0, tabSize: editor.tabSize, source: 'vscode', editor };
 };
 
 /**

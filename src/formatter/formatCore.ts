@@ -1,5 +1,3 @@
-import { splitByVSCodeColumns, stringVSCodeColumns } from './textWidth';
-
 type FormatConfig = {
   paragraphIndent: number;
   overallIndent: number;
@@ -11,22 +9,11 @@ type FormatConfig = {
    * 段内行间距（段内空行数）。
    */
   intraLineSpacing: number;
-  hardWrapOnFormat: boolean;
   /**
    * 是否使用全角空格（U+3000）作为缩进单位。
    * 默认 false（半角空格）。
    */
   useFullWidthIndent?: boolean;
-  /**
-   * 一行字符数（用于判断“会软换行”的阈值，并据此拆分为硬换行）。
-   * 由调用方根据插件配置传入。
-   */
-  lineCharLimit: number;
-
-  /**
-   * VS Code 的制表宽度（editor.tabSize）。用于可见列计算，默认 4。
-   */
-  tabSize?: number;
 
   /**
    * 段落识别策略：决定是否把“空行”作为段落分隔标准。
@@ -41,12 +28,22 @@ type FormatConfig = {
    * 默认开启。
    */
   paragraphSplitOnIndentedLine?: boolean;
+};
 
-  /**
-   * 将同一段内“只是为了换行而手动断行”的多行文字合并为一行，再按阈值重新硬换行。
-   * 默认开启。仅在 hardWrapOnFormat 开启时生效。
-   */
-  mergeSoftWrappedLines?: boolean;
+const DEFAULT_SKIP_FORMAT_LINE_PREFIXES = ['#'];
+
+const shouldSkipFormatLine = (line: string): boolean => {
+  const trimmedLeft = line.trimStart();
+  if (!trimmedLeft) { return false; }
+  return DEFAULT_SKIP_FORMAT_LINE_PREFIXES.some(p => trimmedLeft.startsWith(p));
+};
+
+const normalizeMergedParagraph = (lines: string[]): string => {
+  // 约定：段内多行是“人为断行”，合并时去掉前后空白并直接拼接。
+  return lines
+    .map(s => s.trim())
+    .filter(Boolean)
+    .join('');
 };
 
 export const formatText = (text: string, config: FormatConfig): string => {
@@ -64,32 +61,34 @@ export const formatText = (text: string, config: FormatConfig): string => {
 
   // 统计“段落边界是否有空行”的比例，用于 requireAll/majority 模式判定
   // 边界：两个非空行之间的分隔处。
-  const boundaryStats = (() => {
-    let totalBoundaries = 0;
-    let blankSeparatedBoundaries = 0;
+  const boundaryStats = (!hasBlankLine || mode === 'anyBlankLine')
+    ? { totalBoundaries: 0, blankSeparatedBoundaries: 0 }
+    : (() => {
+      let totalBoundaries = 0;
+      let blankSeparatedBoundaries = 0;
 
-    let seenNonEmpty = false;
-    let blankRun = 0;
-    for (const line of lines) {
-      const isBlank = line.trim().length === 0;
-      if (isBlank) {
-        if (seenNonEmpty) { blankRun++; }
-        continue;
-      }
+      let seenNonEmpty = false;
+      let blankRun = 0;
+      for (const line of lines) {
+        const isBlank = line.trim().length === 0;
+        if (isBlank) {
+          if (seenNonEmpty) { blankRun++; }
+          continue;
+        }
 
-      if (!seenNonEmpty) {
-        seenNonEmpty = true;
+        if (!seenNonEmpty) {
+          seenNonEmpty = true;
+          blankRun = 0;
+          continue;
+        }
+
+        totalBoundaries++;
+        if (blankRun > 0) { blankSeparatedBoundaries++; }
         blankRun = 0;
-        continue;
       }
 
-      totalBoundaries++;
-      if (blankRun > 0) { blankSeparatedBoundaries++; }
-      blankRun = 0;
-    }
-
-    return { totalBoundaries, blankSeparatedBoundaries };
-  })();
+      return { totalBoundaries, blankSeparatedBoundaries };
+    })();
 
   const shouldUseBlankLineAsParagraphSeparator = (() => {
     if (!hasBlankLine) { return false; }
@@ -103,34 +102,30 @@ export const formatText = (text: string, config: FormatConfig): string => {
   })();
 
   const paragraphBlankLines = Math.max(0, Number(config.lineSpacing || 0));
-  const intraBlankLines = Math.max(0, Number(config.intraLineSpacing || 0));
-
   const betweenParagraphSeparator = '\n'.repeat(paragraphBlankLines + 1);
-  const withinParagraphSeparator = '\n'.repeat(intraBlankLines + 1);
 
-  type Paragraph = string[]; // 一个段落由多行（段内行）组成
+  type Paragraph = { lines: string[]; skipFormat: boolean };
   const paragraphs: Paragraph[] = [];
 
   if (!shouldUseBlankLineAsParagraphSeparator) {
     // 无空行：一行一段
     for (const l of lines) {
-      const t = l.trim();
-      if (!t) { continue; }
-      paragraphs.push([t]);
+      if (!l.trim()) { continue; }
+      paragraphs.push({ lines: [l], skipFormat: shouldSkipFormatLine(l) });
     }
   } else {
     // 有空行：默认“空行=段落分隔”。
-    // 但为了幂等：当文本已经被本 formatter 格式化过，段内相邻行之间会出现 intraLineSpacing 个空行。
-    // 因此解析时：
-    // - run >= 1：通常都视作段落分隔
-    // - 仅当 run == intraLineSpacing（且 intraLineSpacing>0）并且“下一行看起来是段内续行”时，才视为段内换行
+    // 当前版本的 formatter 不再插入硬换行，因此段内行间距（intraLineSpacing）仅用于兼容读取旧文本，
+    // 这里统一按“空行即分段”处理。
     let current: string[] = [];
+    let currentSkip = false;
     const flush = () => {
-      const trimmed = current.map(s => s.trim()).filter(Boolean);
-      if (trimmed.length > 0) {
-        paragraphs.push(trimmed);
+      const cleaned = current.filter(s => s.trim().length > 0);
+      if (cleaned.length > 0) {
+        paragraphs.push({ lines: cleaned, skipFormat: currentSkip });
       }
       current = [];
+      currentSkip = false;
     };
 
     const countLeadingIndentUnits = (s: string, unitChar: string): number => {
@@ -148,6 +143,14 @@ export const formatText = (text: string, config: FormatConfig): string => {
       const line = lines[i];
 
       if (line.trim().length !== 0) {
+        // 某些前缀行（如 Markdown 标题）不参与格式化：作为独立段落原样保留。
+        if (shouldSkipFormatLine(line)) {
+          if (current.length > 0) { flush(); }
+          paragraphs.push({ lines: [line], skipFormat: true });
+          i++;
+          continue;
+        }
+
         // 如果某一行本身已经带“首行缩进”（看起来是新段落开头），
         // 即使段间没有空行，也不要把它并入上一段。
         // 该行为默认开启，可用 paragraphSplitOnIndentedLine 关闭。
@@ -175,25 +178,6 @@ export const formatText = (text: string, config: FormatConfig): string => {
         break;
       }
 
-      // lineSpacing == 0 时：任何空行都视作段落分隔
-      if (paragraphBlankLines === 0) {
-        flush();
-        continue;
-      }
-
-      // 仅识别“已格式化输出的段内行间距”作为段内换行（否则会把用户原稿的空行分段错误合并）
-      if (
-        intraBlankLines > 0
-        && run === intraBlankLines
-        && expectedFirstLineUnits > expectedContinuationUnits
-      ) {
-        const nextLine = lines[i];
-        const nextLeading = countLeadingIndentUnits(nextLine, indentChar);
-        if (nextLeading === expectedContinuationUnits) {
-          continue;
-        }
-      }
-
       // 默认：空行即段落分隔
       flush();
     }
@@ -206,67 +190,17 @@ export const formatText = (text: string, config: FormatConfig): string => {
   const overallIndentString = indentChar.repeat(Math.max(0, config.overallIndent || 0));
   const paragraphIndentString = indentChar.repeat(Math.max(0, config.paragraphIndent || 0));
   const firstLineIndent = overallIndentString + paragraphIndentString;
-  const continuationIndent = overallIndentString;
 
-  const limit = Number(config.lineCharLimit || 0);
-  const enableSplit = Boolean(config.hardWrapOnFormat) && limit > 0;
+  const formattedParagraphs = paragraphs.map(p => {
+    if (p.skipFormat) {
+      // 原样保留（仅保留原行序列，不做 trim/合并/缩进）。
+      return p.lines.join('\n');
+    }
 
-  // 将同一段内的多行合并为一行（更接近“软换行看起来是一段”的写作习惯）
-  const shouldMergeSoftWrapLines = enableSplit && config.mergeSoftWrappedLines !== false;
-  const normalizedParagraphs = shouldMergeSoftWrapLines
-    ? paragraphs.map(p => {
-      const merged = p.map(s => s.trim()).filter(Boolean).join('');
-      return merged ? [merged] : [];
-    }).filter(p => p.length > 0)
-    : paragraphs;
-
-  const tabSize = Math.max(1, Number(config.tabSize || 4));
-
-  const splitLineByLimit = (s: string, maxLen: number): string[] => {
-    return splitByVSCodeColumns(s, maxLen, tabSize);
-  };
-
-  const formattedParagraphs = normalizedParagraphs.map(paragraphLines => {
-    const outLines: string[] = [];
-
-    paragraphLines.forEach((raw, lineIndex) => {
-      const content = raw.trim();
-      if (!content) { return; }
-
-      const baseIndent = (lineIndex === 0) ? firstLineIndent : continuationIndent;
-
-      if (!enableSplit) {
-        outLines.push(baseIndent + content);
-        return;
-      }
-
-      // 先计算首行与续行的可用列宽（扣除缩进列数）
-      const firstIndent = (lineIndex === 0) ? firstLineIndent : continuationIndent;
-      const firstLimit = Math.max(1, limit - stringVSCodeColumns(firstIndent, tabSize));
-      const contLimit = Math.max(1, limit - stringVSCodeColumns(continuationIndent, tabSize));
-
-      // 若内容列数不超过首行可用列宽，直接输出（包含缩进）
-      if (stringVSCodeColumns(content, tabSize) <= firstLimit) {
-        outLines.push(baseIndent + content);
-        return;
-      }
-
-      const firstParts = splitLineByLimit(content, firstLimit);
-      if (firstParts.length > 0) {
-        outLines.push(firstIndent + firstParts[0]);
-      }
-
-      const remainder = firstParts.slice(1).join('');
-      if (remainder) {
-        const contParts = splitLineByLimit(remainder, contLimit);
-        for (const seg of contParts) {
-          outLines.push(continuationIndent + seg);
-        }
-      }
-    });
-
-    return outLines.join(withinParagraphSeparator);
-  });
+    const merged = normalizeMergedParagraph(p.lines);
+    if (!merged) { return ''; }
+    return firstLineIndent + merged;
+  }).filter(Boolean);
 
   return formattedParagraphs.join(betweenParagraphSeparator);
 };

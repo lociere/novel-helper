@@ -152,11 +152,6 @@
           "default": true,
           "description": "当某一行本身带段首缩进（看起来是新段开头）时，即使段落间没有空行，也强制从该行开始新段落。默认开启。"
         },
-        "novel-helper.mergeSoftWrappedLines": {
-          "type": "boolean",
-          "default": true,
-          "description": "将同一段内“只是为了换行而手动断行”的多行文字合并为一行，再按阈值重新硬换行（更符合软换行视觉上的“一段”）。默认开启。仅在开启“格式化时硬换行”时生效。"
-        },
         "novel-helper.fontSize": {
           "type": "number",
           "default": 14,
@@ -172,25 +167,10 @@
           "default": false,
           "description": "自动隐藏 VS Code 缩进参考线（避免出现两条竖线）。仅写入工作区设置，不影响全局用户设置。"
         },
-        "novel-helper.hardWrapOnFormat": {
-          "type": "boolean",
-          "default": false,
-          "description": "是否在\"格式化文档\"时进行硬换行（插入真实换行符）。默认关闭。"
-        },
-        "novel-helper.autoHardWrapColumn": {
-          "type": "number",
-          "default": 0,
-          "description": "硬换行阈值（字符数）。0 表示关闭；大于 0 时：1) 输入时：光标位于行尾且行长度达到阈值，会自动插入换行符；2) 格式化时：若开启 hardWrapOnFormat，会按该阈值插入换行符。"
-        },
-        "novel-helper.autoSyncWordWrapColumn": {
-          "type": "boolean",
-          "default": false,
-          "description": "是否自动同步 VS Code 的显示换行设置（editor.wordWrap/editor.wordWrapColumn）。仅写入工作区设置，不影响全局用户设置。"
-        },
         "novel-helper.editorWordWrapColumn": {
           "type": "number",
           "default": 0,
-          "description": "VS Code 显示换行列宽（editor.wordWrapColumn）。0 表示跟随硬换行阈值（autoHardWrapColumn，仅当启用 autoSyncWordWrapColumn 时生效）。"
+          "description": "VS Code 显示换行列宽（editor.wordWrapColumn）。在小说工作区中会启用 wordWrap=wordWrapColumn；当该值>0 时会写入工作区 editor.wordWrapColumn。"
         },
         "novel-helper.useFullWidthIndent": {
           "type": "boolean",

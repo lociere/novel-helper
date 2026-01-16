@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig, getEffectiveWrapSettings } from '../utils/config';
+import { getVSCodeConfig } from '../utils/config';
 
 import { formatText } from './formatCore';
 export { formatText, type FormatConfig } from './formatCore';
@@ -21,8 +21,6 @@ export class Formatter {
         const cfg = getVSCodeConfig();
         const text = document.getText();
 
-        const wrap = getEffectiveWrapSettings(cfg, document);
-
         const newText = formatText(text, {
           paragraphIndent: cfg.paragraphIndent,
           overallIndent: cfg.overallIndent,
@@ -30,11 +28,7 @@ export class Formatter {
           intraLineSpacing: cfg.intraLineSpacing,
           paragraphSplitMode: cfg.paragraphSplitMode,
           paragraphSplitOnIndentedLine: cfg.paragraphSplitOnIndentedLine,
-          mergeSoftWrappedLines: cfg.mergeSoftWrappedLines,
-          hardWrapOnFormat: cfg.hardWrapOnFormat,
-          useFullWidthIndent: cfg.useFullWidthIndent,
-          lineCharLimit: wrap.column,
-          tabSize: wrap.tabSize
+          useFullWidthIndent: cfg.useFullWidthIndent
         });
 
         // 4. 全量替换（确保彻底符合格式）

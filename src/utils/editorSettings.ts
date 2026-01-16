@@ -32,19 +32,25 @@ export const syncWordWrapSetting = async (): Promise<void> => {
   const cfg = getVSCodeConfig();
   const editorCfg = vscode.workspace.getConfiguration('editor');
 
-  const desiredColumn = cfg.editorWordWrapColumn > 0
-    ? cfg.editorWordWrapColumn
-    : cfg.autoHardWrapColumn;
-
   try {
-    if (cfg.autoSyncWordWrapColumn && desiredColumn > 0) {
-      await editorCfg.update('wordWrap', 'wordWrapColumn', vscode.ConfigurationTarget.Workspace);
-      await editorCfg.update('wordWrapColumn', desiredColumn, vscode.ConfigurationTarget.Workspace);
-    } else {
-      await editorCfg.update('wordWrap', undefined, vscode.ConfigurationTarget.Workspace);
-      await editorCfg.update('wordWrapColumn', undefined, vscode.ConfigurationTarget.Workspace);
+    // 小说排版：始终依赖 VS Code 软换行（wordWrapColumn）。
+    await editorCfg.update('wordWrap', 'wordWrapColumn', vscode.ConfigurationTarget.Workspace);
+    if (cfg.editorWordWrapColumn > 0) {
+      await editorCfg.update('wordWrapColumn', cfg.editorWordWrapColumn, vscode.ConfigurationTarget.Workspace);
     }
   } catch {
     // 忽略写入失败（例如无工作区或权限问题）
+  }
+};
+
+/**
+ * 小说工作区启动后：强制关闭 wrappingIndent，便于对每段添加段首缩进。
+ */
+export const syncWrappingIndentSetting = async (): Promise<void> => {
+  const editorCfg = vscode.workspace.getConfiguration('editor');
+  try {
+    await editorCfg.update('wrappingIndent', 'none', vscode.ConfigurationTarget.Workspace);
+  } catch {
+    // ignore
   }
 };

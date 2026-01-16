@@ -6,7 +6,7 @@ import { registerPanel } from './panel';
 import { registerHighlighter } from './highlighter';
 import { registerFormatter } from './formatter';
 import { hideConfigFileInExplorer, isWorkspaceInitialized } from './utils/config';
-import { syncIndentGuidesSetting, syncWordWrapSetting } from './utils/editorSettings';
+import { syncIndentGuidesSetting, syncWordWrapSetting, syncWrappingIndentSetting } from './utils/editorSettings';
 import { addFeatureDisposable, disposeAllFeatures } from './utils/featureRegistry';
 
 /**
@@ -51,9 +51,7 @@ export function activate(context: vscode.ExtensionContext): void {
         void syncIndentGuidesSetting();
       }
       if (
-        e.affectsConfiguration('novel-helper.autoSyncWordWrapColumn')
-        || e.affectsConfiguration('novel-helper.editorWordWrapColumn')
-        || e.affectsConfiguration('novel-helper.autoHardWrapColumn')
+        e.affectsConfiguration('novel-helper.editorWordWrapColumn')
       ) {
         void syncWordWrapSetting();
       }
@@ -62,6 +60,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     void syncIndentGuidesSetting();
     void syncWordWrapSetting();
+    void syncWrappingIndentSetting();
   };
 
   const unregisterFeatures = () => {

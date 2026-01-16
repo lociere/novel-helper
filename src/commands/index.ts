@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { initWorkspace } from './initWorkspace';
 import { closeWorkspace } from './closeWorkspace';
 import { createItem, CreateItemType } from './createItems';
-import { getVSCodeConfig, getEffectiveWrapSettings, isWorkspaceInitialized } from '../utils/config';
+import { getVSCodeConfig, isWorkspaceInitialized } from '../utils/config';
 import { formatText } from '../formatter/formatter';
 
 const SUPPORTED_FORMAT_LANGS = new Set(['plaintext', 'markdown']);
@@ -18,6 +18,13 @@ const ensureInitialized = (): boolean => {
 const canFormatByNovelHelper = (doc: vscode.TextDocument): boolean => {
   if (doc.uri.scheme !== 'file') { return false; }
   return SUPPORTED_FORMAT_LANGS.has(doc.languageId);
+};
+
+const shouldSkipFormatLine = (line: string): boolean => {
+  const trimmedLeft = line.trimStart();
+  if (!trimmedLeft) { return false; }
+  // 与 formatter 逻辑保持一致：某些前缀行（例如 Markdown 标题）不进行格式化。
+  return trimmedLeft.startsWith('#');
 };
 
 /**
@@ -84,7 +91,6 @@ export const registerCommands = (
       }
 
       const cfg = getVSCodeConfig();
-      const wrap = getEffectiveWrapSettings(cfg, document);
 
       const original = document.getText();
       const next = formatText(original, {
@@ -94,19 +100,17 @@ export const registerCommands = (
         intraLineSpacing: cfg.intraLineSpacing,
         paragraphSplitMode: cfg.paragraphSplitMode,
         paragraphSplitOnIndentedLine: cfg.paragraphSplitOnIndentedLine,
-        mergeSoftWrappedLines: cfg.mergeSoftWrappedLines,
-        hardWrapOnFormat: cfg.hardWrapOnFormat,
-        useFullWidthIndent: cfg.useFullWidthIndent,
-        lineCharLimit: wrap.column,
-        tabSize: wrap.tabSize
+        useFullWidthIndent: cfg.useFullWidthIndent
       });
 
       // 自检：如果配置要求段首缩进，但输出首个非空行没有缩进，则提示用户定位原因
       const indentChar = cfg.useFullWidthIndent ? '\u3000' : ' ';
       const expectedFirstLineIndent = indentChar.repeat(Math.max(0, (cfg.overallIndent || 0) + (cfg.paragraphIndent || 0)));
-      const firstNonEmpty = next.split(/\r?\n/).find(l => l.trim().length > 0) ?? '';
-      if (expectedFirstLineIndent.length > 0 && firstNonEmpty && !firstNonEmpty.startsWith(expectedFirstLineIndent)) {
-        const preview = firstNonEmpty.slice(0, Math.min(16, firstNonEmpty.length));
+      const firstNonEmptyFormatted = next
+        .split(/\r?\n/)
+        .find(l => l.trim().length > 0 && !shouldSkipFormatLine(l)) ?? '';
+      if (expectedFirstLineIndent.length > 0 && firstNonEmptyFormatted && !firstNonEmptyFormatted.startsWith(expectedFirstLineIndent)) {
+        const preview = firstNonEmptyFormatted.slice(0, Math.min(16, firstNonEmptyFormatted.length));
         vscode.window.showWarningMessage(
           `Novel Helper 格式化后检测到“段首缩进未写入”。当前缩进配置：段首=${cfg.paragraphIndent}, 整体=${cfg.overallIndent}, 全角缩进=${cfg.useFullWidthIndent ? '是' : '否'}；首行前缀预览：${JSON.stringify(preview)}`
         );
@@ -124,10 +128,12 @@ export const registerCommands = (
       // 二次校验：格式化结果是否被其他操作（例如 formatOnSave/其他扩展）覆盖
       try {
         const afterText = editor.document.getText();
-        const afterFirstNonEmpty = afterText.split(/\r?\n/).find(l => l.trim().length > 0) ?? '';
+        const afterFirstNonEmptyFormatted = afterText
+          .split(/\r?\n/)
+          .find(l => l.trim().length > 0 && !shouldSkipFormatLine(l)) ?? '';
         const persisted = expectedFirstLineIndent.length === 0
           ? true
-          : (afterFirstNonEmpty ? afterFirstNonEmpty.startsWith(expectedFirstLineIndent) : true);
+          : (afterFirstNonEmptyFormatted ? afterFirstNonEmptyFormatted.startsWith(expectedFirstLineIndent) : true);
 
         if (!persisted) {
           vscode.window.showWarningMessage(
