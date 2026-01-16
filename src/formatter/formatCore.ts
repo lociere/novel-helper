@@ -1,3 +1,4 @@
+import { shouldSkipFormatLine } from '../utils/formatRules';
 type FormatConfig = {
   paragraphIndent: number;
   overallIndent: number;
@@ -5,10 +6,6 @@ type FormatConfig = {
    * 段间距（段间空行数）。
    */
   lineSpacing: number;
-  /**
-   * 段内行间距（段内空行数）。
-   */
-  intraLineSpacing: number;
   /**
    * 是否使用全角空格（U+3000）作为缩进单位。
    * 默认 false（半角空格）。
@@ -30,14 +27,6 @@ type FormatConfig = {
   paragraphSplitOnIndentedLine?: boolean;
 };
 
-const DEFAULT_SKIP_FORMAT_LINE_PREFIXES = ['#'];
-
-const shouldSkipFormatLine = (line: string): boolean => {
-  const trimmedLeft = line.trimStart();
-  if (!trimmedLeft) { return false; }
-  return DEFAULT_SKIP_FORMAT_LINE_PREFIXES.some(p => trimmedLeft.startsWith(p));
-};
-
 const normalizeMergedParagraph = (lines: string[]): string => {
   // 约定：段内多行是“人为断行”，合并时去掉前后空白并直接拼接。
   return lines
@@ -47,10 +36,9 @@ const normalizeMergedParagraph = (lines: string[]): string => {
 };
 
 export const formatText = (text: string, config: FormatConfig): string => {
-  // 1) 先确认段落，再处理段内行间距
-  // - 段落：以“空行”作为分隔信号（有空行时），否则默认“一行一段”
+  // 1) 先识别段落，再合并段内文本为单行
+  // - 段落：有空行时以“空行”为分隔信号，否则默认“一行一段”
   // - 段间距：段与段之间插入 lineSpacing 个空行
-  // - 行间距：同一段内相邻两行之间插入 intraLineSpacing 个空行
   // - 幂等性：当文档已按本规则格式化时，二次格式化不会继续增加空行
   const normalized = text.replace(/\r\n/g, '\n');
   const lines = normalized.split('\n');
@@ -115,7 +103,6 @@ export const formatText = (text: string, config: FormatConfig): string => {
     }
   } else {
     // 有空行：默认“空行=段落分隔”。
-    // 当前版本的 formatter 不再插入硬换行，因此段内行间距（intraLineSpacing）仅用于兼容读取旧文本，
     // 这里统一按“空行即分段”处理。
     let current: string[] = [];
     let currentSkip = false;
@@ -166,10 +153,8 @@ export const formatText = (text: string, config: FormatConfig): string => {
         continue;
       }
 
-      // 统计连续空行数
-      let run = 0;
+      // 跳过连续空行
       while (i < lines.length && lines[i].trim().length === 0) {
-        run++;
         i++;
       }
 

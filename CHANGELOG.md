@@ -6,8 +6,15 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
-- Initial release
-- 修复：TypeScript 编译错误与若干运行时问题（createItems、highlighter、helpers、tree view、stats）。 已通过 ESLint 且无警告（2026-01-07）。
+- TBD
+
+## [0.0.10] - 2026-01-16
+
+- 修复：TypeScript 编译错误与若干运行时问题（createItems、highlighter、helpers、tree view、stats）。已通过 ESLint 且无警告。
+- 排版策略调整：格式化输出改为“每段一行”（依赖 VS Code 软换行显示折行），并支持跳过 Markdown 标题等前缀行。
+- 移除硬换行与段内行间距相关实现与配置项，配置面板仅保留 `editor.wordWrapColumn` 相关设置。
+- 新增编辑行为增强：回车自动补段间空行与段首缩进（可开关）。
+- 启动小说工作区后同步写入编辑器显示设置：`editor.wordWrap=wordWrapColumn`、`editor.wrappingIndent=none`，并支持同步 `editor.lineHeight`。
 
 ## [0.0.4] - 2026-01-14
 

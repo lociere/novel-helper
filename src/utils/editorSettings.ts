@@ -25,8 +25,8 @@ export const syncIndentGuidesSetting = async (): Promise<void> => {
 
 /**
  * 根据插件配置同步 VS Code 的自动换行显示：
- * - 开启：写入工作区 editor.wordWrap=wordWrapColumn，并设置 editor.wordWrapColumn
- * - 关闭：移除工作区层面的对应设置，回退到用户/默认值
+ * - 始终写入工作区 editor.wordWrap=wordWrapColumn
+ * - editorWordWrapColumn>0 时写入 editor.wordWrapColumn；否则移除工作区层面的 wordWrapColumn（回退到用户/默认值）
  */
 export const syncWordWrapSetting = async (): Promise<void> => {
   const cfg = getVSCodeConfig();
@@ -37,6 +37,8 @@ export const syncWordWrapSetting = async (): Promise<void> => {
     await editorCfg.update('wordWrap', 'wordWrapColumn', vscode.ConfigurationTarget.Workspace);
     if (cfg.editorWordWrapColumn > 0) {
       await editorCfg.update('wordWrapColumn', cfg.editorWordWrapColumn, vscode.ConfigurationTarget.Workspace);
+    } else {
+      await editorCfg.update('wordWrapColumn', undefined, vscode.ConfigurationTarget.Workspace);
     }
   } catch {
     // 忽略写入失败（例如无工作区或权限问题）
@@ -53,4 +55,37 @@ export const syncWrappingIndentSetting = async (): Promise<void> => {
   } catch {
     // ignore
   }
+};
+
+/**
+ * 根据插件配置同步 VS Code 行高（editor.lineHeight）。
+ */
+export const syncEditorLineHeightSetting = async (): Promise<void> => {
+  const cfg = getVSCodeConfig();
+  const editorCfg = vscode.workspace.getConfiguration('editor');
+
+  try {
+    if (cfg.editorLineHeight && cfg.editorLineHeight > 0) {
+      await editorCfg.update('lineHeight', cfg.editorLineHeight, vscode.ConfigurationTarget.Workspace);
+    } else {
+      await editorCfg.update('lineHeight', undefined, vscode.ConfigurationTarget.Workspace);
+    }
+  } catch {
+    // ignore
+  }
+};
+
+/**
+ * 同步 Novel Helper 相关的 VS Code 编辑器设置（工作区级别）。
+ *
+ * 职责边界：
+ * - 本函数仅写入工作区 settings，不修改用户全局设置。
+ * - 具体每项设置的逻辑由各自的 sync* 函数维护。
+ */
+export const syncAllEditorSettings = async (): Promise<void> => {
+  // 顺序无强依赖；这里串行执行以降低并发写入导致的偶发失败。
+  await syncIndentGuidesSetting();
+  await syncWordWrapSetting();
+  await syncWrappingIndentSetting();
+  await syncEditorLineHeightSetting();
 };

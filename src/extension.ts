@@ -5,8 +5,9 @@ import { registerStatusBar } from './statusBar';
 import { registerPanel } from './panel';
 import { registerHighlighter } from './highlighter';
 import { registerFormatter } from './formatter';
+import { registerEditorBehavior } from './editorBehavior';
 import { hideConfigFileInExplorer, isWorkspaceInitialized } from './utils/config';
-import { syncIndentGuidesSetting, syncWordWrapSetting, syncWrappingIndentSetting } from './utils/editorSettings';
+import { syncAllEditorSettings } from './utils/editorSettings';
 import { addFeatureDisposable, disposeAllFeatures } from './utils/featureRegistry';
 
 /**
@@ -39,6 +40,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerModule('Panel', registerPanel);
     registerModule('Highlighter', registerHighlighter);
     registerModule('Formatter', registerFormatter);
+    registerModule('EditorBehavior', registerEditorBehavior);
 
     try {
       hideConfigFileInExplorer();
@@ -47,20 +49,17 @@ export function activate(context: vscode.ExtensionContext): void {
     }
 
     const cfgListener = vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('novel-helper.autoDisableIndentGuides')) {
-        void syncIndentGuidesSetting();
-      }
       if (
-        e.affectsConfiguration('novel-helper.editorWordWrapColumn')
+        e.affectsConfiguration('novel-helper.autoDisableIndentGuides')
+        || e.affectsConfiguration('novel-helper.editorWordWrapColumn')
+        || e.affectsConfiguration('novel-helper.editorLineHeight')
       ) {
-        void syncWordWrapSetting();
+        void syncAllEditorSettings();
       }
     });
     addFeatureDisposable(cfgListener);
 
-    void syncIndentGuidesSetting();
-    void syncWordWrapSetting();
-    void syncWrappingIndentSetting();
+    void syncAllEditorSettings();
   };
 
   const unregisterFeatures = () => {

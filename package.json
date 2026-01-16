@@ -2,7 +2,7 @@
   "name": "novel-helper",
   "displayName": "Novel Helper",
   "description": "VSCode辅助写小说的插件，支持目录管理、高亮、统计、排版等功能",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -132,10 +132,10 @@
           "default": 1,
           "description": "段间距（段间空行数）：0 表示仅换行；1 表示空一行"
         },
-        "novel-helper.intraLineSpacing": {
-          "type": "number",
-          "default": 0,
-          "description": "段内行间距（段内空行数）：仅影响同一段内多行（例如硬换行产生的多行）。建议默认=段间距-1。"
+        "novel-helper.autoLayoutOnEnter": {
+          "type": "boolean",
+          "default": true,
+          "description": "回车自动排版：自动插入段间空行与段首缩进（适配软换行写作方式）。"
         },
         "novel-helper.paragraphSplitMode": {
           "type": "string",
@@ -156,6 +156,11 @@
           "type": "number",
           "default": 14,
           "description": "字号大小（通过配置面板修改时会同步更新 editor.fontSize 全局设置）"
+        },
+        "novel-helper.editorLineHeight": {
+          "type": "number",
+          "default": 0,
+          "description": "VS Code 行高（editor.lineHeight）。0 表示不写入工作区设置。"
         },
         "novel-helper.highlightColor": {
           "type": "string",

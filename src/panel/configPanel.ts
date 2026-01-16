@@ -56,11 +56,10 @@ export const openConfigPanel = async (): Promise<void> => {
       ])
     },
     {
-      label: '行间距与段间距',
-      description: '控制空行数量',
+      label: '段间距',
+      description: '控制段与段之间空行数量',
       buildItems: () => ([
         { label: '段间距（段间空行数）', description: `当前值: ${config.lineSpacing}`, type: 'number', key: 'lineSpacing' },
-        { label: '行间距（段内空行数）', description: `当前值: ${config.intraLineSpacing}`, type: 'number', key: 'intraLineSpacing' },
       ])
     },
     {
@@ -76,11 +75,19 @@ export const openConfigPanel = async (): Promise<void> => {
       ])
     },
     {
+      label: '自动排版',
+      description: '回车自动段间距与段首缩进',
+      buildItems: () => ([
+        { label: '回车自动排版', description: `当前值: ${config.autoLayoutOnEnter ? '开启' : '关闭'}`, type: 'boolean', key: 'autoLayoutOnEnter' },
+      ])
+    },
+    {
       label: '显示与高亮',
       description: '状态栏/高亮/显示相关',
       buildItems: () => ([
         { label: '隐藏缩进参考线', description: `当前值: ${config.autoDisableIndentGuides ? '开启' : '关闭'}`, type: 'boolean', key: 'autoDisableIndentGuides' },
         { label: '字号大小', description: `当前值: ${config.fontSize} (仅修改配置)`, type: 'number', key: 'fontSize' },
+        { label: 'VS Code 行高（editor.lineHeight）', description: `当前值: ${config.editorLineHeight}（0 表示不写入工作区设置）`, type: 'number', key: 'editorLineHeight' },
         { label: '高亮颜色', description: `当前值: ${config.highlightColor}`, type: 'string', key: 'highlightColor' },
       ])
     }

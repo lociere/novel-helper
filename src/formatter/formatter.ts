@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { getVSCodeConfig } from '../utils/config';
+import { TEXT_DOCUMENT_SELECTORS } from '../utils/supportedDocuments';
 
-import { formatText } from './formatCore';
+import { formatDocumentText } from './formatService';
 export { formatText, type FormatConfig } from './formatCore';
 
 /** 格式化管理器 */
@@ -21,15 +22,7 @@ export class Formatter {
         const cfg = getVSCodeConfig();
         const text = document.getText();
 
-        const newText = formatText(text, {
-          paragraphIndent: cfg.paragraphIndent,
-          overallIndent: cfg.overallIndent,
-          lineSpacing: cfg.lineSpacing,
-          intraLineSpacing: cfg.intraLineSpacing,
-          paragraphSplitMode: cfg.paragraphSplitMode,
-          paragraphSplitOnIndentedLine: cfg.paragraphSplitOnIndentedLine,
-          useFullWidthIndent: cfg.useFullWidthIndent
-        });
+        const newText = formatDocumentText(document, cfg);
 
         // 4. 全量替换（确保彻底符合格式）
         const fullRange = new vscode.Range(
@@ -43,7 +36,7 @@ export class Formatter {
 
     // 注册格式化程序并返回 disposable
     return vscode.languages.registerDocumentFormattingEditProvider(
-      [{ scheme: 'file', language: 'plaintext' }, { scheme: 'file', language: 'markdown' }],
+      TEXT_DOCUMENT_SELECTORS,
       formatterProvider
     );
   }

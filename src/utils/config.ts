@@ -31,11 +31,6 @@ export interface NovelHelperConfig {
    */
   lineSpacing: number;
   /**
-   * 段内行间距（段内空行数）。
-   * 仅影响同一段内多行（例如硬换行产生的多行）。
-   */
-  intraLineSpacing: number;
-  /**
    * 段落识别策略：决定是否把“空行”作为段落分隔标准。
    * - anyBlankLine: 只要文档中出现过空行，就用空行分段（旧逻辑）
    * - requireAll: 只有当所有段落边界都有空行时才用空行分段，否则退化为“一行一段”
@@ -47,12 +42,20 @@ export interface NovelHelperConfig {
    */
   paragraphSplitOnIndentedLine: boolean;
   fontSize: number;
+  /**
+   * VS Code 行高（editor.lineHeight）。0 表示不写入工作区设置。
+   */
+  editorLineHeight: number;
   highlightColor: string;
   /**
    * 自动隐藏 VS Code 缩进参考线（避免出现竖线）。
    * 仅写入工作区设置，不影响全局用户设置。
    */
   autoDisableIndentGuides: boolean;
+  /**
+   * 回车自动排版：自动插入段间空行与段首缩进。
+   */
+  autoLayoutOnEnter: boolean;
   /**
    * VS Code 显示换行列宽（editor.wordWrapColumn）。
     * 0 表示不主动覆盖 editor.wordWrapColumn（仅启用 wordWrapColumn 模式）。
@@ -78,12 +81,13 @@ const defaultConfig: NovelHelperConfig = {
   paragraphIndent: 2,
   overallIndent: 0,
   lineSpacing: 1,
-  intraLineSpacing: 0,
   paragraphSplitMode: 'anyBlankLine',
   paragraphSplitOnIndentedLine: true,
   fontSize: 14,
+  editorLineHeight: 0,
   highlightColor: '#FFD700',
   autoDisableIndentGuides: false,
+  autoLayoutOnEnter: true,
   editorWordWrapColumn: 0,
   useFullWidthIndent: false,
   highlightItems: {},
@@ -115,6 +119,21 @@ const sanitizeConfig = (raw: unknown): { config: NovelHelperConfig; changed: boo
   if ('highlightTextColor' in (cfg as any)) {
     delete (cfg as any).highlightTextColor;
     changed = true;
+  }
+
+  // 移除已废弃字段（历史遗留）
+  const deprecatedKeys = [
+    'intraLineSpacing',
+    'mergeSoftWrappedLines',
+    'hardWrapOnFormat',
+    'autoHardWrapColumn',
+    'autoSyncWordWrapColumn'
+  ];
+  for (const key of deprecatedKeys) {
+    if (key in (cfg as any)) {
+      delete (cfg as any)[key];
+      changed = true;
+    }
   }
 
   return { config: cfg, changed };
@@ -209,13 +228,13 @@ export const getVSCodeConfig = (): NovelHelperConfig => {
     paragraphIndent: config.get('paragraphIndent', 2),
     overallIndent: config.get('overallIndent', 0),
     lineSpacing: config.get('lineSpacing', 1),
-    // 默认：段内行间距 = max(段间距-1, 0)，但允许用户单独配置覆盖
-    intraLineSpacing: config.get('intraLineSpacing', Math.max(0, config.get('lineSpacing', 1) - 1)),
     paragraphSplitMode: config.get('paragraphSplitMode', 'anyBlankLine'),
     paragraphSplitOnIndentedLine: config.get('paragraphSplitOnIndentedLine', true),
     fontSize: config.get('fontSize', 14),
+    editorLineHeight: config.get('editorLineHeight', 0),
     highlightColor: config.get('highlightColor', '#FFD700'),
     autoDisableIndentGuides: config.get('autoDisableIndentGuides', false),
+    autoLayoutOnEnter: config.get('autoLayoutOnEnter', false),
     editorWordWrapColumn: config.get('editorWordWrapColumn', 0),
     useFullWidthIndent: config.get('useFullWidthIndent', false)
   };
