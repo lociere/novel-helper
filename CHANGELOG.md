@@ -8,6 +8,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - TBD
 
+## [0.1.2] - 2026-01-17
+
+- 修复：工作区移动/复制导致被判定为“未初始化”，进而自动保存等同步设置不生效。
+- 调整：配置面板将“自动保存”归入“自动化”分类。
+- 打包：更新 .vscodeignore，避免将本地 `.novel-helper.json` 与打包产物误包含进 VSIX。
+
 ## [0.1.1] - 2026-01-17
 
 - 工程整理：抽取通用 `debounce`/`isThenable`，减少重复实现。
