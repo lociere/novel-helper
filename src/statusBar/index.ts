@@ -7,6 +7,5 @@ import { StatusBarManager } from './statusBarManager';
  */
 export const registerStatusBar = (context: vscode.ExtensionContext): vscode.Disposable => {
   const statusBarManager = new StatusBarManager(context);
-  context.subscriptions.push(statusBarManager);
   return statusBarManager;
 };

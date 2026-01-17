@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { pathExists, readTextFile, writeTextFile } from '../utils/workspaceFs';
+import { pathExists, readTextFile, writeTextFile } from '../utils/fs';
 import { defaultConfig, type NovelHelperConfig } from './types';
 import { sanitizeConfig } from './sanitize';
 
@@ -52,6 +52,10 @@ const scheduleConfigWrite = (cfg: NovelHelperConfig): void => {
     if (!next) { return; }
 
     inFlightWrite = persistConfigToDisk(next).catch(err => {
+      // 忽略因扩展停用导致的取消错误
+      if (err instanceof vscode.FileSystemError && err.code === 'Canceled') { return; }
+      if (err?.name === 'Canceled' || err?.message === 'Canceled') { return; }
+      
       console.error('[Novel Helper] 写入配置文件失败:', err);
       vscode.window.showErrorMessage('写入配置文件失败');
     }).finally(() => {
@@ -69,6 +73,8 @@ export const flushConfigWrites = async (): Promise<void> => {
     pendingWriteConfig = undefined;
     if (next) {
       inFlightWrite = persistConfigToDisk(next).catch(err => {
+        if (err instanceof vscode.FileSystemError && err.code === 'Canceled') { return; }
+        if (err?.name === 'Canceled' || err?.message === 'Canceled') { return; }
         console.error('[Novel Helper] 写入配置文件失败:', err);
       }).finally(() => {
         inFlightWrite = undefined;

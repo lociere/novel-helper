@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { NovelTreeItem } from './treeItem';
-import { getWorkspaceRoot } from '../utils/workspace';
+import { getWorkspaceRoot } from '../utils/fs';
 import { countWords } from '../utils/text';
-import { isWorkspaceInitialized } from '../utils/config';
-import { readTextFile } from '../utils/workspaceFs';
+import { isWorkspaceInitialized } from '../config';
+import { readTextFile } from '../utils/fs';
 import { sortTreeItems } from './sorter';
 import { isTextFile, isConfigFile, resolveDirPath, PREDEFINED_ROOTS } from './utils';
 

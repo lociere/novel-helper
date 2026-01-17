@@ -6,7 +6,7 @@ import { registerPanel } from './panel';
 import { registerHighlighter } from './highlighter';
 import { registerFormatter } from './formatter';
 import { registerEditorBehavior } from './editorBehavior';
-import { ensureConfigLoaded, flushConfigWrites, hideConfigFileInExplorer, isWorkspaceInitialized, registerConfigFileWatcher } from './utils/config';
+import { ensureConfigLoaded, flushConfigWrites, hideConfigFileInExplorer, isWorkspaceInitialized, registerConfigFileWatcher } from './config';
 import { syncAllEditorSettings } from './utils/editorSettings';
 import { addFeatureDisposable, disposeAllFeatures } from './utils/featureRegistry';
 
@@ -96,10 +96,10 @@ export function activate(context: vscode.ExtensionContext): void {
 /**
  * 扩展停用时执行
  */
-export function deactivate(): void {
+export function deactivate(): Thenable<void> {
   console.log('novel-helper 已停用！');
   // 确保停用时清理功能模块
   try { disposeAllFeatures(); } catch { /* ignore */ }
   // 尽量把防抖中的配置写入落盘
-  void flushConfigWrites();
+  return flushConfigWrites();
 }

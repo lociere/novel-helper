@@ -1,4 +1,4 @@
-import { readConfig, writeConfig, type NovelHelperConfig, type HighlightItem } from '../utils/config';
+import { readConfig, writeConfig, type NovelHelperConfig, type HighlightItem } from '../config';
 
 export type HighlightItemsMap = NovelHelperConfig['highlightItems'];
 

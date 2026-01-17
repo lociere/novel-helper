@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig, readConfig, writeConfig } from '../utils/config';
+import { getVSCodeConfig, readConfig, writeConfig } from '../config';
 import { countWords } from '../utils/text';
 import { formatTime, calculateWritingSpeed } from '../utils/time';
 import { isSupportedTextDocument } from '../utils/supportedDocuments';

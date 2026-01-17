@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { NovelTreeDataProvider } from './novelTreeDataProvider';
-import { getWorkspaceRoot } from '../utils/workspace';
-import { isWorkspaceInitialized } from '../utils/config';
+import { getWorkspaceRoot } from '../utils/fs';
+import { isWorkspaceInitialized } from '../config';
 import { isSupportedTextDocument } from '../utils/supportedDocuments';
 
 // 超大文件字数统计保护阈值（字符数），超过则仅在保存时刷新
@@ -15,28 +15,28 @@ const getDebounceDelayMs = (textLength: number): number => {
 
 /**
  * 注册小说树视图
- * @param context 扩展上下文
  */
-export const registerTreeView = (context: vscode.ExtensionContext): vscode.Disposable => {
+export const registerTreeView = (): vscode.Disposable => {
+  const disposables: vscode.Disposable[] = [];
+  
   const treeDataProvider = new NovelTreeDataProvider();
   const treeView = vscode.window.createTreeView('novelTreeView', {
     treeDataProvider,
     showCollapseAll: true
   });
+  disposables.push(treeView);
 
   // 注册刷新命令
   const refreshCmd = vscode.commands.registerCommand('novelTreeView.refresh', () => {
     treeDataProvider.refresh();
   });
-  context.subscriptions.push(refreshCmd);
-
-  context.subscriptions.push(treeView);
+  disposables.push(refreshCmd);
 
   // 监听文件保存（立即刷新）
   const onSave = vscode.workspace.onDidSaveTextDocument(() => {
     treeDataProvider.refresh();
   });
-  context.subscriptions.push(onSave);
+  disposables.push(onSave);
 
   // 监听文件系统变化（创建/删除/重命名）：修复删除后树视图不刷新的问题
   // 仅在已开启小说工作区时启用，且尽量做防抖。
@@ -53,7 +53,7 @@ export const registerTreeView = (context: vscode.ExtensionContext): vscode.Dispo
     const onCreate = fsWatcher.onDidCreate(() => scheduleRefresh(200));
     const onDelete = fsWatcher.onDidDelete(() => scheduleRefresh(200));
     const onChangeFs = fsWatcher.onDidChange(() => scheduleRefresh(500));
-    context.subscriptions.push(fsWatcher, onCreate, onDelete, onChangeFs);
+    disposables.push(fsWatcher, onCreate, onDelete, onChangeFs);
   }
 
   // 监听内容变化（防抖刷新，用于实时更新字数）
@@ -74,7 +74,7 @@ export const registerTreeView = (context: vscode.ExtensionContext): vscode.Dispo
       }, getDebounceDelayMs(textLength));
     }
   });
-  context.subscriptions.push(onChange);
+  disposables.push(onChange);
 
-  return vscode.Disposable.from(treeView, refreshCmd, onSave, onChange);
+  return vscode.Disposable.from(...disposables);
 };

@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { getWorkspaceRoot } from '../utils/workspace';
-import { updateNovelHelperSetting } from '../utils/config';
-import { ensureDir, writeTextFileIfMissing } from '../utils/workspaceFs';
+import { getWorkspaceRoot } from '../utils/fs';
+import { updateNovelHelperSetting } from '../config';
+import { ensureDir, writeTextFileIfMissing } from '../utils/fs';
 
 /**
  * 开启小说工作区：创建标准目录结构与示例文件，并写入 Novel Helper 配置。

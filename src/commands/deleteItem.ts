@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { isWorkspaceInitialized } from '../utils/config';
+import { isWorkspaceInitialized } from '../config';
 import type { NovelTreeItem } from '../treeView/treeItem';
 
 const isDeletableTreeItem = (arg: unknown): arg is NovelTreeItem => {

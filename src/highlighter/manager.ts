@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { readConfig } from '../utils/config';
+import { readConfig } from '../config';
 import { removeHighlightItem, upsertHighlightItem } from './highlightStore';
 import { DecorationManager } from './decoration';
 import { HighlightMatcher, ValidatedHighlightItem } from './matcher';
@@ -12,7 +12,7 @@ export class HighlightManager implements vscode.Disposable {
   private highlightItems: { [key: string]: ValidatedHighlightItem } = {};
   private disposables: vscode.Disposable[] = [];
 
-  constructor(context: vscode.ExtensionContext) {
+  constructor() {
     this.decorationManager = new DecorationManager();
     this.matcher = new HighlightMatcher();
 
@@ -21,11 +21,11 @@ export class HighlightManager implements vscode.Disposable {
     // Initial update
     this.updateHighlights();
 
-    this.registerEventListeners(context);
-    this.registerDefinitionProvider(context);
+    this.registerEventListeners();
+    this.registerDefinitionProvider();
         
     // Register commands externally but connected to this instance
-    registerHighlightCommands(context, this);
+    this.disposables.push(...registerHighlightCommands(this));
   }
 
   public getKeys(): string[] {
@@ -114,7 +114,7 @@ export class HighlightManager implements vscode.Disposable {
     editor.setDecorations(this.decorationManager.get(), decorations);
   }
 
-  private registerEventListeners(context: vscode.ExtensionContext): void {
+  private registerEventListeners(): void {
     const debounce = (func: () => void, delay: number) => {
       let timeout: NodeJS.Timeout;
       return () => {
@@ -125,7 +125,7 @@ export class HighlightManager implements vscode.Disposable {
 
     const debouncedUpdate = debounce(() => this.updateHighlights(), 300);
 
-    context.subscriptions.push(
+    this.disposables.push(
       vscode.workspace.onDidChangeTextDocument(() => debouncedUpdate()),
       vscode.window.onDidChangeActiveTextEditor(() => debouncedUpdate()),
       vscode.window.onDidChangeVisibleTextEditors(() => debouncedUpdate()),
@@ -136,11 +136,9 @@ export class HighlightManager implements vscode.Disposable {
         }
       })
     );
-        
-    this.disposables.push(vscode.Disposable.from({ dispose: () => {} })); 
   }
 
-  private registerDefinitionProvider(context: vscode.ExtensionContext): void {
+  private registerDefinitionProvider(): void {
     const selector: vscode.DocumentSelector = [
       { scheme: 'file', language: 'plaintext' },
       { scheme: 'file', language: 'markdown' }
@@ -168,6 +166,6 @@ export class HighlightManager implements vscode.Disposable {
       }
     });
 
-    context.subscriptions.push(provider);
+    this.disposables.push(provider);
   }
 }

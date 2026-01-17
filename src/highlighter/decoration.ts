@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { readConfig } from '../utils/config';
+import { readConfig } from '../config';
 
 export class DecorationManager {
   private decorationType: vscode.TextEditorDecorationType;

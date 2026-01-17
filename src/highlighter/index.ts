@@ -6,6 +6,6 @@ export { HighlightManager };
 /**
  * 注册高亮管理器
  */
-export const registerHighlighter = (context: vscode.ExtensionContext): HighlightManager => {
-  return new HighlightManager(context);
+export const registerHighlighter = (): HighlightManager => {
+  return new HighlightManager();
 };

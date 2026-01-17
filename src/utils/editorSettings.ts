@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig } from './config';
+import { getVSCodeConfig } from '../config';
 
 /**
  * 根据插件配置同步 VS Code 编辑器缩进参考线设置。

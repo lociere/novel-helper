@@ -2,20 +2,21 @@ import * as vscode from 'vscode';
 import { HighlightManager } from './manager';
 import { HIGHLIGHT_MAX_KEY_LENGTH } from './utils';
 
-export function registerHighlightCommands(context: vscode.ExtensionContext, manager: HighlightManager) {
+export function registerHighlightCommands(manager: HighlightManager): vscode.Disposable[] {
+  const disposables: vscode.Disposable[] = [];
     
   // 1. Add Highlight
-  context.subscriptions.push(vscode.commands.registerCommand('novel-helper.addHighlight', () => {
+  disposables.push(vscode.commands.registerCommand('novel-helper.addHighlight', () => {
     addHighlightLogic(manager, 'selected');
   }));
 
   // 2. Add From Settings (functionally same as above but different entry point text context usually)
-  context.subscriptions.push(vscode.commands.registerCommand('novel-helper.addHighlightFromSelection', () => {
+  disposables.push(vscode.commands.registerCommand('novel-helper.addHighlightFromSelection', () => {
     addHighlightLogic(manager, 'setting');
   }));
 
   // 3. Remove Highlight
-  context.subscriptions.push(vscode.commands.registerCommand('novel-helper.removeHighlight', async (arg?: unknown) => {
+  disposables.push(vscode.commands.registerCommand('novel-helper.removeHighlight', async (arg?: unknown) => {
     const keys = manager.getKeys();
     if (keys.length === 0) {
       vscode.window.showInformationMessage('当前没有设置任何高亮');
@@ -34,7 +35,7 @@ export function registerHighlightCommands(context: vscode.ExtensionContext, mana
   }));
 
   // 4. Jump
-  context.subscriptions.push(vscode.commands.registerCommand('novel-helper.jumpToHighlightSource', async (arg?: unknown) => {
+  disposables.push(vscode.commands.registerCommand('novel-helper.jumpToHighlightSource', async (arg?: unknown) => {
     const keys = manager.getKeys();
     if (keys.length === 0) {
       vscode.window.showInformationMessage('未找到任何高亮设定');
@@ -64,6 +65,8 @@ export function registerHighlightCommands(context: vscode.ExtensionContext, mana
       console.error(e);
     }
   }));
+
+  return disposables;
 }
 
 function addHighlightLogic(manager: HighlightManager, type: 'selected' | 'setting') {

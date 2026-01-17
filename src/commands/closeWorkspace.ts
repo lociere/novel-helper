@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { clearNovelHelperWorkspaceSettings, deleteConfigFile } from '../utils/config';
+import { clearNovelHelperWorkspaceSettings, deleteConfigFile } from '../config';
 import { disposeAllFeatures } from '../utils/featureRegistry';
 
 /**

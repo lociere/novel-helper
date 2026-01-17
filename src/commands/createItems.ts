@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { getWorkspaceRoot } from '../utils/workspace';
-import { ensureDir, writeTextFileIfMissing } from '../utils/workspaceFs';
+import { getWorkspaceRoot } from '../utils/fs';
+import { ensureDir, writeTextFileIfMissing } from '../utils/fs';
 
 /**
  * 项目创建配置常量（优化：统一管理路径、模板、类型，减少重复代码）

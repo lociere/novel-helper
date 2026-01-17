@@ -1,13 +1,14 @@
 import * as vscode from 'vscode';
 import { Formatter } from './formatter';
 
-/**
- * 注册格式化功能
- * @param context 扩展上下文
- */
-export const registerFormatter = (context: vscode.ExtensionContext): vscode.Disposable => {
-  const formatter = new Formatter(context);
-  context.subscriptions.push(formatter);
+export * from './formatCore'; 
+export * from './formatConfigBuilder';
 
-  return vscode.Disposable.from(formatter);
+/**
+ * 注册格式化管理器
+ */
+export const registerFormatter = (): vscode.Disposable => {
+  const formatter = new Formatter();
+  // Formatter constructor handles registration and subscription
+  return formatter;
 };

@@ -1,4 +1,4 @@
-import type { NovelHelperConfig } from '../utils/config';
+import type { NovelHelperConfig } from '../config';
 import type { FormatConfig } from './formatCore';
 
 /**

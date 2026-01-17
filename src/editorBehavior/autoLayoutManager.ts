@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig } from '../utils/config';
-import { shouldSkipFormatLine } from '../utils/formatRules';
+import { getVSCodeConfig } from '../config';
+import { shouldSkipFormatLine } from '../formatter/rules';
 import { isSupportedTextDocument } from '../utils/supportedDocuments';
 
 /**

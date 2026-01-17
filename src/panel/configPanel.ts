@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getVSCodeConfig, NovelHelperConfig, getEditorWrapSettings, updateNovelHelperSetting } from '../utils/config';
+import { getVSCodeConfig, NovelHelperConfig, getEditorWrapSettings, updateNovelHelperSetting } from '../config';
 
 /** 配置项类型 */
 interface ConfigItem {

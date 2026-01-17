@@ -3,9 +3,9 @@ import { initWorkspace } from './initWorkspace';
 import { closeWorkspace } from './closeWorkspace';
 import { createItem, CreateItemType } from './createItems';
 import { deleteItem } from './deleteItem';
-import { getVSCodeConfig, isWorkspaceInitialized } from '../utils/config';
+import { getVSCodeConfig, isWorkspaceInitialized } from '../config';
 import { isSupportedTextDocument } from '../utils/supportedDocuments';
-import { formatDocumentText } from '../formatter/formatService';
+import { formatText, buildFormatConfig } from '../formatter';
 
 const ensureInitialized = (): boolean => {
   if (isWorkspaceInitialized()) {
@@ -88,7 +88,8 @@ export const registerCommands = (
       const cfg = getVSCodeConfig();
 
       const original = document.getText();
-      const next = formatDocumentText(document, cfg);
+      const formatConfig = buildFormatConfig(cfg);
+      const next = formatText(original, formatConfig);
 
       const fullRange = new vscode.Range(
         document.positionAt(0),
@@ -98,14 +99,14 @@ export const registerCommands = (
       await editor.edit(editBuilder => {
         editBuilder.replace(fullRange, next);
       });
-    }],
-    ['novel-helper.openConfigPanel', () => {
-      if (!ensureInitialized()) { return; }
-      return vscode.commands.executeCommand('novel-helper.showConfigPanel');
+      
+      vscode.window.setStatusBarMessage('Novel Helper: 格式化完成', 2000);
     }]
   ];
 
-  registrations.forEach(([command, handler]) => {
-    context.subscriptions.push(vscode.commands.registerCommand(command, safeExec(handler)));
+  registrations.forEach(([cmd, fn]) => {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(cmd, safeExec(fn))
+    );
   });
 };
