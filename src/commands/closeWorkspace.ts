@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { clearNovelHelperWorkspaceSettings, deleteConfigFile, writeConfig } from '../utils/config';
+import { clearNovelHelperWorkspaceSettings, deleteConfigFile } from '../utils/config';
 import { disposeAllFeatures } from '../utils/featureRegistry';
 
 /**
@@ -8,8 +8,7 @@ import { disposeAllFeatures } from '../utils/featureRegistry';
  */
 export const closeWorkspace = async (): Promise<void> => {
   try {
-    // 1) 清空配置文件内容（先写空路径，再删除配置文件以阻断下次激活）
-    writeConfig({ workspacePath: '' });
+    // 1) 删除配置文件以阻断下次激活（并防止防抖写入回写）
     await deleteConfigFile();
 
     // 2) 移除工作区 settings 中的 novel-helper.*，避免下次打开时插件再次生效
