@@ -94,7 +94,7 @@ const createItemCore = async (type: CreateItemType, name: string, basePath?: str
     vscode.window.showInformationMessage(`成功创建${type}：${trimmedName}`);
     // 刷新树视图以立即展示新创建的文件/目录
     try {
-      vscode.commands.executeCommand('novelTreeView.refresh');
+      await vscode.commands.executeCommand('novelTreeView.refresh');
     } catch {
       // 忽略刷新失败
     }
