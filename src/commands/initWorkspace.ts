@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { createDir, createFile } from '../utils/fileSystem';
 import { getWorkspaceRoot } from '../utils/helpers';
 import { updateNovelHelperSetting } from '../utils/config';
+import { ensureDir, writeTextFileIfMissing } from '../utils/workspaceFs';
 
 /**
  * 开启小说工作区：创建标准目录结构与示例文件，并写入 Novel Helper 配置。
@@ -24,14 +24,15 @@ export const initWorkspace = async (): Promise<void> => {
     '正文/分卷1'
   ];
 
-  dirs.forEach(dir => {
-    createDir(path.join(root, dir));
-  });
+  // 使用 VS Code 的 workspace.fs 创建目录（跨平台、可适配远程文件系统）
+  await Promise.all(
+    dirs.map(dir => ensureDir(vscode.Uri.file(path.join(root, dir))))
+  );
 
   // 创建初始文件
-  createFile(path.join(root, '大纲/总大纲.md'), '# 总大纲\n\n');
-  createFile(path.join(root, '设定/角色设定/主角.md'), '# 主角设定\n\n');
-  createFile(path.join(root, '正文/分卷1/第一章.txt'), '');
+  await writeTextFileIfMissing(vscode.Uri.file(path.join(root, '大纲/总大纲.md')), '# 总大纲\n\n');
+  await writeTextFileIfMissing(vscode.Uri.file(path.join(root, '设定/角色设定/主角.md')), '# 主角设定\n\n');
+  await writeTextFileIfMissing(vscode.Uri.file(path.join(root, '正文/分卷1/第一章.txt')), '');
 
   // 写入配置（同时同步写入工作区 settings）
   await updateNovelHelperSetting('workspacePath', root, vscode.ConfigurationTarget.Workspace);

@@ -23,14 +23,6 @@ export const deleteItem = async (arg: unknown): Promise<void> => {
   const isDir = arg.type === 'directory';
   const label = typeof arg.label === 'string' ? arg.label : (arg.label?.toString() || uri.fsPath);
 
-  const picked = await vscode.window.showWarningMessage(
-    `确认删除${isDir ? '文件夹' : '文件'}：${label}？此操作不可撤销。`,
-    { modal: true },
-    '删除'
-  );
-
-  if (picked !== '删除') { return; }
-
   try {
     await vscode.workspace.fs.delete(uri, { recursive: isDir, useTrash: true });
   } catch (err) {
@@ -38,6 +30,13 @@ export const deleteItem = async (arg: unknown): Promise<void> => {
     const msg = err instanceof Error ? err.message : String(err);
     vscode.window.showErrorMessage(`删除失败：${msg}`);
     return;
+  }
+
+  // 非弹窗反馈：状态栏短提示
+  try {
+    vscode.window.setStatusBarMessage(`已删除${isDir ? '文件夹' : '文件'}：${label}（可在回收站恢复）`, 2500);
+  } catch {
+    // ignore
   }
 
   // 立即刷新树视图

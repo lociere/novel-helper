@@ -323,15 +323,14 @@ export const hideConfigFileInExplorer = (): void => {
 };
 
 /** 删除工作区配置文件（.novel-helper.json），若不存在则跳过 */
-export const deleteConfigFile = (): void => {
+export const deleteConfigFile = async (): Promise<void> => {
   const configPath = getConfigFilePath();
   if (!configPath) { return; }
   try {
-    if (fs.existsSync(configPath)) {
-      fs.unlinkSync(configPath);
-    }
+    const uri = vscode.Uri.file(configPath);
+    await vscode.workspace.fs.delete(uri, { recursive: false, useTrash: true });
   } catch {
-    vscode.window.showErrorMessage('删除配置文件失败');
+    // ignore
   }
 };
 

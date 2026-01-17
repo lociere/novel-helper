@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { createDir, createFile } from '../utils/fileSystem';
 import { getWorkspaceRoot } from '../utils/helpers';
+import { ensureDir, writeTextFileIfMissing } from '../utils/workspaceFs';
 
 /**
  * 项目创建配置常量（优化：统一管理路径、模板、类型，减少重复代码）
@@ -46,7 +46,7 @@ const resolveTargetDir = (basePath: string | undefined, configBaseDir: string, w
 
 
 /** 创建文件/目录的核心逻辑（命令交互在 createItem 中处理）。 */
-const createItemCore = (type: CreateItemType, name: string, basePath?: string): void => {
+const createItemCore = async (type: CreateItemType, name: string, basePath?: string): Promise<void> => {
   const workspaceRoot = getWorkspaceRoot();
   if (!workspaceRoot) {
     vscode.window.showErrorMessage('未找到工作区根路径，请先打开小说工作区！');
@@ -74,32 +74,23 @@ const createItemCore = (type: CreateItemType, name: string, basePath?: string): 
   const dirPath = resolveTargetDir(basePath, config.dir, workspaceRoot);
   let targetPath = '';
   
-  // 确保父目录存在
-  const dirCreated = createDir(dirPath);
-  if (!dirCreated) {
-    return; // 目录创建失败则终止
-  }
+  // 确保父目录存在（VS Code 内置文件系统 API）
+  await ensureDir(vscode.Uri.file(dirPath));
 
   // 根据配置创建目录/文件
-  let created = false;
   if (config.isDir) {
     targetPath = path.join(dirPath, trimmedName);
-    created = createDir(targetPath);
-    if (!created) {
-      vscode.window.showErrorMessage(`创建目录失败：${targetPath}`);
-      return;
-    }
+    await ensureDir(vscode.Uri.file(targetPath));
   } else {
     const fileName = `${trimmedName}.${config.ext!}`;
     targetPath = path.join(dirPath, fileName);
     const content = config.template?.replace(/{{name}}/g, trimmedName) || '';
-    created = createFile(targetPath, content);
-    if (!created) {
-      return;
-    }
+
+    // 与旧行为保持一致：若文件已存在则视为成功且不覆盖内容
+    await writeTextFileIfMissing(vscode.Uri.file(targetPath), content);
   }
 
-  if (created && targetPath) {
+  if (targetPath) {
     vscode.window.showInformationMessage(`成功创建${type}：${trimmedName}`);
     // 刷新树视图以立即展示新创建的文件/目录
     try {
@@ -126,7 +117,7 @@ export const createItem = (type: CreateItemType, parentPath?: string): void => {
     }
   }).then(name => {
     if (name) {
-      createItemCore(type, name, parentPath);
+      void createItemCore(type, name, parentPath);
     }
   });
 };

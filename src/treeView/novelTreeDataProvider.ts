@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 import * as path from 'path';
 import { NovelTreeItem } from './treeItem';
 import { getWorkspaceRoot, countWords } from '../utils/helpers';
 import { CONFIG_FILE_NAME, isWorkspaceInitialized } from '../utils/config';
+import { readTextFile } from '../utils/workspaceFs';
 
 const TEXT_EXTS = ['.txt', '.md'];
+const LARGE_TEXT_FILE_BYTES = 500_000;
 
 /** 小说树数据提供器 */
 export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeItem> {
@@ -135,7 +136,7 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
       );
 
       if (this.isTextFile(name)) {
-        this.attachWordCount(item, filePath);
+        await this.attachWordCount(item, filePath);
       }
 
       children.push(item);
@@ -290,24 +291,29 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
     return TEXT_EXTS.some(ext => fileName.endsWith(ext));
   }
 
-  private attachWordCount(item: NovelTreeItem, filePath: string): void {
-    const content = this.safeReadText(filePath);
-    if (content === undefined) { return; }
-    const count = countWords(content);
-    item.description = `${count}字`;
+  private async attachWordCount(item: NovelTreeItem, filePath: string): Promise<void> {
+    try {
+      const openDoc = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === filePath);
+      if (openDoc) {
+        item.description = `${countWords(openDoc.getText())}字`;
+        return;
+      }
+
+      const uri = vscode.Uri.file(filePath);
+      const stat = await vscode.workspace.fs.stat(uri);
+      if (stat.size > LARGE_TEXT_FILE_BYTES) {
+        return;
+      }
+
+      const content = await readTextFile(uri);
+      item.description = `${countWords(content)}字`;
+    } catch {
+      // ignore
+    }
   }
 
   private isConfigFile(fileName: string): boolean {
     return fileName === CONFIG_FILE_NAME;
-  }
-
-  private safeReadText(filePath: string): string | undefined {
-    try {
-      const openDoc = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === filePath);
-      return openDoc ? openDoc.getText() : fs.readFileSync(filePath, 'utf-8');
-    } catch {
-      return undefined;
-    }
   }
 
   /**
