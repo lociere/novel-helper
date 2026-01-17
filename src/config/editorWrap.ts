@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import type { NovelHelperConfig } from './types';
 
 /** 读取 VS Code 的编辑器换行/制表设置，用于与自动换行逻辑对齐。 */
 export const getEditorWrapSettings = (doc?: vscode.TextDocument): {

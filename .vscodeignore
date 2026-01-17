@@ -5,6 +5,9 @@ node_modules
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
+dist/**
+**/*.vsix
+.novel-helper.json
 **/tsconfig.json
 **/eslint.config.mjs
 **/*.map
