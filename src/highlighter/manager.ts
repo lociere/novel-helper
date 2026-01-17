@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { readConfig } from '../config';
+import { debounce } from '../utils/async';
+import { TEXT_DOCUMENT_SELECTORS } from '../utils/supportedDocuments';
 import { removeHighlightItem, upsertHighlightItem } from './highlightStore';
 import { DecorationManager } from './decoration';
 import { HighlightMatcher, ValidatedHighlightItem } from './matcher';
@@ -115,14 +117,6 @@ export class HighlightManager implements vscode.Disposable {
   }
 
   private registerEventListeners(): void {
-    const debounce = (func: () => void, delay: number) => {
-      let timeout: NodeJS.Timeout;
-      return () => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func(), delay);
-      };
-    };
-
     const debouncedUpdate = debounce(() => this.updateHighlights(), 300);
 
     this.disposables.push(
@@ -139,12 +133,7 @@ export class HighlightManager implements vscode.Disposable {
   }
 
   private registerDefinitionProvider(): void {
-    const selector: vscode.DocumentSelector = [
-      { scheme: 'file', language: 'plaintext' },
-      { scheme: 'file', language: 'markdown' }
-    ];
-
-    const provider = vscode.languages.registerDefinitionProvider(selector, {
+    const provider = vscode.languages.registerDefinitionProvider(TEXT_DOCUMENT_SELECTORS, {
       provideDefinition: (document, position) => {
         const fullText = document.getText();
         for (const key of Object.keys(this.highlightItems)) {

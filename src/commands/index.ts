@@ -5,6 +5,7 @@ import { createItem, CreateItemType } from './createItems';
 import { deleteItem } from './deleteItem';
 import { getVSCodeConfig, isWorkspaceInitialized } from '../config';
 import { isSupportedTextDocument } from '../utils/supportedDocuments';
+import { isThenable } from '../utils/async';
 import { formatText, buildFormatConfig } from '../formatter';
 
 const ensureInitialized = (): boolean => {
@@ -17,13 +18,6 @@ const ensureInitialized = (): boolean => {
 
 const canFormatByNovelHelper = (doc: vscode.TextDocument): boolean => isSupportedTextDocument(doc);
 
-
-/**
- * 将命令执行包装，自动捕获同步或异步错误并显示友好提示
- */
-function isThenable(value: unknown): value is Thenable<unknown> {
-  return !!value && typeof value === 'object' && 'then' in (value as any) && typeof (value as any).then === 'function';
-}
 
 function safeExec<TArgs extends unknown[], TResult>(fn: (...args: TArgs) => TResult | Thenable<TResult>) {
   return (...args: TArgs) => {

@@ -8,6 +8,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - TBD
 
+## [0.1.1] - 2026-01-17
+
+- 工程整理：抽取通用 `debounce`/`isThenable`，减少重复实现。
+- 解耦：修复 `utils` 与 `config` 潜在循环依赖风险，降低初始化顺序问题。
+- 一致性：高亮与格式化统一复用相同的文档选择器定义。
+- 清理：移除未被引用的导出，收敛模块职责边界。
+
 ## [0.0.10] - 2026-01-16
 
 - 修复：TypeScript 编译错误与若干运行时问题（createItems、highlighter、helpers、tree view、stats）。已通过 ESLint 且无警告。

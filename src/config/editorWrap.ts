@@ -29,28 +29,3 @@ export const getEditorWrapSettings = (doc?: vscode.TextDocument): {
     tabSize: Math.max(1, Number(numericTabSize || 4))
   };
 };
-
-export type EffectiveWrapSettings = {
-  /** 0 表示不覆盖列宽（仍可启用 editor.wordWrap=wordWrapColumn） */
-  column: number;
-  tabSize: number;
-  source: 'vscode' | 'novel-helper';
-  editor: ReturnType<typeof getEditorWrapSettings>;
-};
-
-/**
- * 计算“建议写入 VS Code 的显示换行列宽”。
- * - 当 novel-helper.editorWordWrapColumn > 0：使用该值
- * - 否则：不覆盖列宽，返回 0（仅用于 UI 展示）
- */
-export const getEffectiveWrapSettings = (
-  cfg: NovelHelperConfig,
-  doc?: vscode.TextDocument
-): EffectiveWrapSettings => {
-  const editor = getEditorWrapSettings(doc);
-
-  if (cfg.editorWordWrapColumn && cfg.editorWordWrapColumn > 0) {
-    return { column: cfg.editorWordWrapColumn, tabSize: editor.tabSize, source: 'novel-helper', editor };
-  }
-  return { column: 0, tabSize: editor.tabSize, source: 'vscode', editor };
-};
