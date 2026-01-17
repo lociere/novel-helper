@@ -32,16 +32,16 @@ export const registerTreeView = (): vscode.Disposable => {
   });
   disposables.push(refreshCmd);
 
-  // 监听文件保存（立即刷新）
-  const onSave = vscode.workspace.onDidSaveTextDocument(() => {
-    treeDataProvider.refresh();
+  // 监听文件保存（局部刷新）
+  const onSave = vscode.workspace.onDidSaveTextDocument((doc) => {
+    treeDataProvider.refreshFile(doc.uri);
   });
   disposables.push(onSave);
 
   // 监听文件系统变化（创建/删除/重命名）：修复删除后树视图不刷新的问题
   // 仅在已开启小说工作区时启用，且尽量做防抖。
   let fsDebounceTimer: NodeJS.Timeout | undefined;
-  const scheduleRefresh = (delay: number) => {
+  const scheduleFullRefresh = (delay: number) => {
     if (!treeView.visible) { return; }
     if (fsDebounceTimer) { clearTimeout(fsDebounceTimer); }
     fsDebounceTimer = setTimeout(() => treeDataProvider.refresh(), delay);
@@ -50,9 +50,17 @@ export const registerTreeView = (): vscode.Disposable => {
   const root = isWorkspaceInitialized() ? getWorkspaceRoot() : undefined;
   if (root) {
     const fsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(root, '**/*'));
-    const onCreate = fsWatcher.onDidCreate(() => scheduleRefresh(200));
-    const onDelete = fsWatcher.onDidDelete(() => scheduleRefresh(200));
-    const onChangeFs = fsWatcher.onDidChange(() => scheduleRefresh(500));
+    // 创建/删除：结构变化，全量刷新
+    const onCreate = fsWatcher.onDidCreate(() => scheduleFullRefresh(200));
+    const onDelete = fsWatcher.onDidDelete(() => scheduleFullRefresh(200));
+    
+    // 外部修改文件内容：尝试局部刷新；若不在缓存中（如新文件未被识别），则忽略或由 onCreate 处理
+    const onChangeFs = fsWatcher.onDidChange((uri) => {
+      if (treeView.visible) {
+        treeDataProvider.refreshFile(uri);
+      }
+    });
+
     disposables.push(fsWatcher, onCreate, onDelete, onChangeFs);
   }
 
@@ -70,7 +78,8 @@ export const registerTreeView = (): vscode.Disposable => {
         clearTimeout(debounceTimer);
       }
       debounceTimer = setTimeout(() => {
-        treeDataProvider.refresh();
+        // 局部刷新字数
+        treeDataProvider.refreshFile(e.document.uri);
       }, getDebounceDelayMs(textLength));
     }
   });

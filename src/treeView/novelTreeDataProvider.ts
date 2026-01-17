@@ -15,14 +15,29 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
   private _onDidChangeTreeData: vscode.EventEmitter<NovelTreeItem | undefined | null | void> = new vscode.EventEmitter<NovelTreeItem | undefined | null | void>();
   readonly onDidChangeTreeData: vscode.Event<NovelTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
+  // 缓存节点引用，用于局部刷新
+  private itemCache = new Map<string, NovelTreeItem>();
+
   /** 刷新树视图 */
   refresh(): void {
+    this.itemCache.clear();
     this._onDidChangeTreeData.fire();
+  }
+
+  /** 仅刷新单个文件的节点（例如更新字数），避免整个树抖动 */
+  async refreshFile(uri: vscode.Uri): Promise<void> {
+    const item = this.itemCache.get(uri.fsPath);
+    if (!item) { return; }
+
+    // 更新字数（复用 attachWordCount 逻辑，支持打开文档或磁盘读取）
+    await this.attachWordCount(item, uri.fsPath);
+    this._onDidChangeTreeData.fire(item);
   }
 
   getTreeItem(element: NovelTreeItem): vscode.TreeItem | Thenable<vscode.TreeItem> {
     return element;
   }
+
 
   getChildren(element?: NovelTreeItem): vscode.ProviderResult<NovelTreeItem[]> {
     if (!isWorkspaceInitialized()) {
@@ -110,6 +125,9 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
         vscode.TreeItemCollapsibleState.None,
         vscode.Uri.file(filePath)
       );
+
+      // 缓存文件节点
+      this.itemCache.set(filePath, item);
 
       if (isTextFile(name)) {
         await this.attachWordCount(item, filePath);

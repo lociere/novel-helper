@@ -26,6 +26,10 @@ export class NovelTreeItem extends vscode.TreeItem {
     // 将传入的 resourceUri 赋值到 TreeItem，以便数据提供器等可以读取
     if (resourceUri) {
       this.resourceUri = resourceUri;
+      this.id = resourceUri.fsPath; // 使用文件路径作为唯一 ID，确保刷新后展开状态保持
+    } else {
+      // 对于虚拟节点，构造一个唯一 ID
+      this.id = `${type}:${label}:${parentPath || ''}`;
     }
     this.type = type;
     this.createType = createType;
