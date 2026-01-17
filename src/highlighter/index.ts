@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
-import { Highlighter } from './highlighter';
+import { HighlightManager } from './manager';
+
+export { HighlightManager };
 
 /**
- * 注册高亮功能
- * @param context 扩展上下文
+ * 注册高亮管理器
  */
-export const registerHighlighter = (context: vscode.ExtensionContext): vscode.Disposable => {
-  const highlighter = new Highlighter(context);
-  context.subscriptions.push(highlighter);
-  return highlighter;
+export const registerHighlighter = (context: vscode.ExtensionContext): HighlightManager => {
+  return new HighlightManager(context);
 };
