@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { NovelTreeDataProvider } from './novelTreeDataProvider';
+import { getWorkspaceRoot } from '../utils/helpers';
+import { isWorkspaceInitialized } from '../utils/config';
 
 // 超大文件字数统计保护阈值（字符数），超过则仅在保存时刷新
 const LARGE_FILE_CHAR_THRESHOLD = 500_000;
@@ -41,6 +43,24 @@ export const registerTreeView = (context: vscode.ExtensionContext): vscode.Dispo
     treeDataProvider.refresh();
   });
   context.subscriptions.push(onSave);
+
+  // 监听文件系统变化（创建/删除/重命名）：修复删除后树视图不刷新的问题
+  // 仅在已开启小说工作区时启用，且尽量做防抖。
+  let fsDebounceTimer: NodeJS.Timeout | undefined;
+  const scheduleRefresh = (delay: number) => {
+    if (!treeView.visible) { return; }
+    if (fsDebounceTimer) { clearTimeout(fsDebounceTimer); }
+    fsDebounceTimer = setTimeout(() => treeDataProvider.refresh(), delay);
+  };
+
+  const root = isWorkspaceInitialized() ? getWorkspaceRoot() : undefined;
+  if (root) {
+    const fsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(root, '**/*'));
+    const onCreate = fsWatcher.onDidCreate(() => scheduleRefresh(200));
+    const onDelete = fsWatcher.onDidDelete(() => scheduleRefresh(200));
+    const onChangeFs = fsWatcher.onDidChange(() => scheduleRefresh(500));
+    context.subscriptions.push(fsWatcher, onCreate, onDelete, onChangeFs);
+  }
 
   // 监听内容变化（防抖刷新，用于实时更新字数）
   let debounceTimer: NodeJS.Timeout | undefined;

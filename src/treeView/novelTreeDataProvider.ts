@@ -3,8 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { NovelTreeItem } from './treeItem';
 import { getWorkspaceRoot, countWords } from '../utils/helpers';
-import { getDirFiles } from '../utils/fileSystem';
-import { CONFIG_FILE_NAME, getConfigFilePath, isWorkspaceInitialized } from '../utils/config';
+import { CONFIG_FILE_NAME, isWorkspaceInitialized } from '../utils/config';
 
 const TEXT_EXTS = ['.txt', '.md'];
 
@@ -56,9 +55,11 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
         return [];
       }
 
-      const children = this.getDirectoryContent(dirPath);
-      this.appendCreateButtons(children, dirPath, root);
-      return children;
+      return this.getDirectoryContent(dirPath).then(children => {
+        this.appendCreateButtons(children, dirPath, root);
+        // 子节点排序：目录/文件按名称排序，“新建”按钮固定置底，避免影响观感。
+        return this.sortChildren(children, dirPath);
+      });
     }
 
     return [];
@@ -98,58 +99,191 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
   /**
    * 获取目录下实际存在的文件和文件夹节点
    */
-  private getDirectoryContent(dirPath: string): NovelTreeItem[] {
-    const configFullPath = getConfigFilePath();
-    const allFiles = getDirFiles(dirPath);
-
+  private async getDirectoryContent(dirPath: string): Promise<NovelTreeItem[]> {
     const children: NovelTreeItem[] = [];
+    let entries: Array<[string, vscode.FileType]> = [];
 
-    // 过滤并分类
-    const folders: string[] = [];
-    const files: string[] = [];
+    try {
+      // VS Code 内置：一次调用拿到名称与类型，避免对每个子项 statSync。
+      entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(dirPath));
+    } catch {
+      return children;
+    }
 
-    allFiles.forEach(fileName => {
-      if (this.isConfigFile(fileName, dirPath, configFullPath)) { return; }
+    for (const [name, type] of entries) {
+      if (this.isConfigFile(name)) { continue; }
 
-      const fullPath = path.join(dirPath, fileName);
-      const stat = this.safeStat(fullPath);
-      if (!stat) { return; }
-
-      if (stat.isDirectory()) {
-        folders.push(fileName);
-      } else {
-        files.push(fileName);
+      if (type === vscode.FileType.Directory) {
+        children.push(new NovelTreeItem(
+          name,
+          'directory',
+          vscode.TreeItemCollapsibleState.Collapsed,
+          vscode.Uri.file(path.join(dirPath, name))
+        ));
+        continue;
       }
-    });
 
-    // 添加文件夹节点
-    folders.forEach(f => {
-      children.push(new NovelTreeItem(
-        f,
-        'directory',
-        vscode.TreeItemCollapsibleState.Collapsed,
-        vscode.Uri.file(path.join(dirPath, f))
-      ));
-    });
+      // 仅处理普通文件（忽略 SymbolicLink 等特殊类型）
+      if (type !== vscode.FileType.File) { continue; }
 
-    // 添加文件节点
-    files.forEach(f => {
-      const filePath = path.join(dirPath, f);
+      const filePath = path.join(dirPath, name);
       const item = new NovelTreeItem(
-        f,
+        name,
         'file',
         vscode.TreeItemCollapsibleState.None,
         vscode.Uri.file(filePath)
       );
 
-      if (this.isTextFile(f)) {
+      if (this.isTextFile(name)) {
         this.attachWordCount(item, filePath);
       }
 
       children.push(item);
-    });
+    }
 
     return children;
+  }
+
+  private readonly collator = new Intl.Collator('zh-Hans-CN', { numeric: true, sensitivity: 'base' });
+  private compareByName = (a: string, b: string): number => this.collator.compare(a, b);
+
+  private getDirContext(dirPath: string): '正文' | '大纲' | 'default' {
+    const base = path.basename(dirPath);
+    if (base === '正文') { return '正文'; }
+    if (base === '大纲') { return '大纲'; }
+    // 正文下的分卷目录，也按正文规则排序
+    const parent = path.basename(path.dirname(dirPath));
+    if (parent === '正文') { return '正文'; }
+    return 'default';
+  }
+
+  private parseChineseNumber(raw: string): number | null {
+    const s = raw.replace(/[\s　]+/g, '');
+    if (!s) { return null; }
+
+    const digitMap: Record<string, number> = {
+      '零': 0,
+      '〇': 0,
+      '一': 1,
+      '二': 2,
+      '两': 2,
+      '三': 3,
+      '四': 4,
+      '五': 5,
+      '六': 6,
+      '七': 7,
+      '八': 8,
+      '九': 9
+    };
+
+    // 纯数字串：一二三（不含十百千）
+    if (/^[零〇一二两三四五六七八九]+$/.test(s)) {
+      let n = 0;
+      for (const ch of s) {
+        n = n * 10 + (digitMap[ch] ?? 0);
+      }
+      return n;
+    }
+
+    // 含单位：十百千（支持到 9999 左右的常见章节/卷号）
+    if (!/^[零〇一二两三四五六七八九十百千]+$/.test(s)) { return null; }
+
+    let result = 0;
+    let current = 0;
+
+    const flushUnit = (unit: number) => {
+      const v = current === 0 ? 1 : current;
+      result += v * unit;
+      current = 0;
+    };
+
+    for (const ch of s) {
+      if (ch === '千') { flushUnit(1000); continue; }
+      if (ch === '百') { flushUnit(100); continue; }
+      if (ch === '十') { flushUnit(10); continue; }
+      const d = digitMap[ch];
+      if (typeof d === 'number') { current = d; }
+    }
+    result += current;
+    return result > 0 ? result : null;
+  }
+
+  private parseLeadingIndex(name: string): number | null {
+    const trimmed = name.trim();
+
+    // 常见：第十二章 / 第十二卷 / 第12章
+    const m1 = trimmed.match(/^第\s*([0-9]+)\s*[卷章节回话部集]?/);
+    if (m1) { return Number(m1[1]); }
+    const m2 = trimmed.match(/^第\s*([零〇一二两三四五六七八九十百千]+)\s*[卷章节回话部集]?/);
+    if (m2) { return this.parseChineseNumber(m2[1]); }
+
+    // 纯数字前缀：01 xxx / 1. xxx / 1、xxx
+    const m3 = trimmed.match(/^([0-9]+)\s*([\.、_\-\s]|$)/);
+    if (m3) { return Number(m3[1]); }
+
+    // 纯中文数字前缀：一 二 三 / 十二
+    const m4 = trimmed.match(/^([零〇一二两三四五六七八九十百千]+)\s*([\.、_\-\s]|$)/);
+    if (m4) { return this.parseChineseNumber(m4[1]); }
+
+    return null;
+  }
+
+  private getSpecialGroup(name: string, ctx: '正文' | '大纲' | 'default'): number {
+    if (ctx === '大纲') {
+      if (name.includes('总大纲')) { return 0; }
+      if (name.includes('分大纲')) { return 1; }
+      return 2;
+    }
+    if (ctx === '正文') {
+      // 序章/楔子等放在最前，但仍保持小于第一章
+      if (/^(序章|楔子|引子|前言)/.test(name)) { return 0; }
+      // 正文常规章节/卷：走编号排序
+      return 1;
+    }
+    return 0;
+  }
+
+  private buildSortKey(item: NovelTreeItem, ctx: '正文' | '大纲' | 'default', originalIndex: number): {
+    typeRank: number;
+    groupRank: number;
+    numberRank: number;
+    name: string;
+    originalIndex: number;
+  } {
+    const name = typeof item.label === 'string' ? item.label : item.label?.toString() || '';
+    const typeRank = item.type === 'directory' ? 0 : 1;
+    const groupRank = this.getSpecialGroup(name, ctx);
+
+    // 正文：尽量按章节/卷编号升序；缺失编号的放后面
+    let numberRank = Number.POSITIVE_INFINITY;
+    if (ctx === '正文') {
+      const n = this.parseLeadingIndex(name);
+      if (n !== null && n !== undefined) {
+        numberRank = n;
+      }
+    }
+
+    return { typeRank, groupRank, numberRank, name, originalIndex };
+  }
+
+  private sortChildren(items: NovelTreeItem[], dirPath?: string): NovelTreeItem[] {
+    const createItems = items.filter(i => i.type === 'create-item');
+    const normalItems = items.filter(i => i.type !== 'create-item');
+
+    const ctx = dirPath ? this.getDirContext(dirPath) : 'default';
+
+    const keyed = normalItems.map((item, idx) => ({ item, key: this.buildSortKey(item, ctx, idx) }));
+    keyed.sort((a, b) => {
+      if (a.key.typeRank !== b.key.typeRank) { return a.key.typeRank - b.key.typeRank; }
+      if (a.key.groupRank !== b.key.groupRank) { return a.key.groupRank - b.key.groupRank; }
+      if (a.key.numberRank !== b.key.numberRank) { return a.key.numberRank - b.key.numberRank; }
+
+      const byName = this.compareByName(a.key.name, b.key.name);
+      if (byName !== 0) { return byName; }
+      return a.key.originalIndex - b.key.originalIndex;
+    });
+
+    return [...keyed.map(k => k.item), ...createItems];
   }
 
   private isTextFile(fileName: string): boolean {
@@ -163,17 +297,8 @@ export class NovelTreeDataProvider implements vscode.TreeDataProvider<NovelTreeI
     item.description = `${count}字`;
   }
 
-  private isConfigFile(fileName: string, dirPath: string, configFullPath: string): boolean {
-    if (fileName === CONFIG_FILE_NAME) { return true; }
-    return path.join(dirPath, fileName) === configFullPath;
-  }
-
-  private safeStat(fullPath: string): fs.Stats | undefined {
-    try {
-      return fs.statSync(fullPath);
-    } catch {
-      return undefined;
-    }
+  private isConfigFile(fileName: string): boolean {
+    return fileName === CONFIG_FILE_NAME;
   }
 
   private safeReadText(filePath: string): string | undefined {

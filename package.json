@@ -39,6 +39,12 @@
         "enablement": "novelHelper.initialized == true"
       },
       {
+        "command": "novel-helper.deleteItem",
+        "title": "Novel Helper: 删除",
+        "category": "Novel Helper",
+        "enablement": "novelHelper.initialized == true"
+      },
+      {
         "command": "novel-helper.openConfigPanel",
         "title": "Novel Helper: 打开配置面板",
         "category": "Novel Helper",
@@ -111,6 +117,14 @@
           "command": "novel-helper.formatDocument",
           "when": "novelHelper.initialized == true && editorTextFocus",
           "group": "1_novel_helper"
+        }
+      ]
+      ,
+      "view/item/context": [
+        {
+          "command": "novel-helper.deleteItem",
+          "when": "view == novelTreeView && (viewItem == file || viewItem == directory)",
+          "group": "2_novel_helper"
         }
       ]
     },

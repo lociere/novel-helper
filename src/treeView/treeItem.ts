@@ -31,6 +31,9 @@ export class NovelTreeItem extends vscode.TreeItem {
     this.createType = createType;
     this.parentPath = parentPath;
 
+    // 用于 view/item/context 的 when 条件（右键菜单）。
+    this.contextValue = type;
+
     // 设置图标和命令
     switch (type) {
       case 'root':

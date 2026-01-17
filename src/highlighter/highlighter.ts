@@ -327,7 +327,12 @@ export class Highlighter {
    * 注册定义提供器：支持 Ctrl+点击高亮文本跳转到源位置
    */
   private registerDefinitionProvider(context: vscode.ExtensionContext): void {
-    const provider = vscode.languages.registerDefinitionProvider({ scheme: 'file' }, {
+    const selector: vscode.DocumentSelector = [
+      { scheme: 'file', language: 'plaintext' },
+      { scheme: 'file', language: 'markdown' }
+    ];
+
+    const provider = vscode.languages.registerDefinitionProvider(selector, {
       provideDefinition: (document, position) => {
         const fullText = document.getText();
 
@@ -345,13 +350,14 @@ export class Highlighter {
           const link: vscode.DefinitionLink = {
             originSelectionRange: hit,
             targetUri,
-            targetRange
+            targetRange,
+            targetSelectionRange: targetRange
           };
 
           return [link];
         }
 
-        return [];
+        return undefined;
       }
     });
 

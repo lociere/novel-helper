@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getVSCodeConfig, readConfig, writeConfig } from '../utils/config';
 import { countWords, formatTime, calculateWritingSpeed } from '../utils/helpers';
+import { isSupportedTextDocument } from '../utils/supportedDocuments';
 
 type StatusBarKey = 'wordCount' | 'format' | 'speed' | 'time';
 type StatusBarItems = Record<StatusBarKey, vscode.StatusBarItem>;
@@ -10,6 +11,7 @@ export class StatusBarManager {
   private statusBarItems!: StatusBarItems;
   private currentWordCount = 0;
   private editStartTime = 0;
+  private editingDocFsPath: string | undefined;
 
   private disposables: vscode.Disposable[] = [];
 
@@ -62,8 +64,8 @@ export class StatusBarManager {
     });
 
     // 3. 文档关闭：累计编辑时长
-    const closeDocDisposable = vscode.workspace.onDidCloseTextDocument(() => {
-      this.handleDocumentClose();
+    const closeDocDisposable = vscode.workspace.onDidCloseTextDocument(doc => {
+      this.handleDocumentClose(doc);
     });
 
     // 统一管理资源
@@ -78,21 +80,44 @@ export class StatusBarManager {
     }
   }
 
+  private commitSessionTime(): void {
+    if (!this.editStartTime || this.editStartTime <= 0) { return; }
+    const now = Date.now();
+    const duration = now - this.editStartTime;
+    if (!duration || duration <= 0) { return; }
+
+    const cfg = readConfig();
+    // 只累计“已开始的有效会话”，并写回总时长。
+    writeConfig({ totalEditTime: cfg.totalEditTime + duration });
+  }
+
   /**
    * 处理编辑器激活/切换
    */
   private handleActiveEditorChange(editor: vscode.TextEditor | undefined): void {
     if (!editor) { return; }
-    
+
+    // 切换编辑器前，先结算上一段会话的时间（仅当上一会话确实在计时）
+    this.commitSessionTime();
+
+    // 仅对小说相关文本计时/统计
+    if (!isSupportedTextDocument(editor.document)) {
+      this.editStartTime = 0;
+      this.editingDocFsPath = undefined;
+      return;
+    }
+
     this.editStartTime = Date.now();
+    this.editingDocFsPath = editor.document.uri.fsPath;
+
     const wordCount = countWords(editor.document.getText());
-    
+
     // 更新会话开始状态，用于计算本次速度
-    writeConfig({ 
-      editStartTime: this.editStartTime, 
-      lastWordCount: wordCount 
+    writeConfig({
+      editStartTime: this.editStartTime,
+      lastWordCount: wordCount
     });
-    
+
     this.updateStatusBar(editor.document);
   }
 
@@ -103,6 +128,7 @@ export class StatusBarManager {
     const editor = vscode.window.activeTextEditor;
     // 仅当变更发生在当前激活的编辑器中才更新
     if (editor && event.document === editor.document) {
+      if (!isSupportedTextDocument(event.document)) { return; }
       this.updateStatusBar(event.document);
     }
   }
@@ -110,22 +136,26 @@ export class StatusBarManager {
   /**
    * 处理文档关闭（计算时长）
    */
-  private handleDocumentClose(): void {
-    const config = readConfig();
-    const currentTime = Date.now();
-    const duration = currentTime - config.editStartTime;
-    writeConfig({ totalEditTime: config.totalEditTime + duration });
+  private handleDocumentClose(doc: vscode.TextDocument): void {
+    // 仅当关闭的是当前计时的文档时，才结算并停止计时。
+    if (!this.editingDocFsPath) { return; }
+    if (doc.uri.fsPath !== this.editingDocFsPath) { return; }
+
+    this.commitSessionTime();
+    this.editStartTime = 0;
+    this.editingDocFsPath = undefined;
   }
 
   /** 更新状态栏 */
   public updateStatusBar(document: vscode.TextDocument): void {
+    if (!isSupportedTextDocument(document)) { return; }
     const config = getVSCodeConfig();
     const text = document.getText();
     this.currentWordCount = countWords(text);
 
     // 计算码字速度
     const currentTime = Date.now();
-    const duration = currentTime - this.editStartTime; // 本次会话时长
+    const duration = this.editStartTime > 0 ? (currentTime - this.editStartTime) : 0; // 本次会话时长
     const wordChange = this.currentWordCount - config.lastWordCount; // 本次字数变化
     const speed = calculateWritingSpeed(wordChange, duration);
 
@@ -152,6 +182,8 @@ export class StatusBarManager {
 
   /** 销毁状态栏项 */
   public dispose(): void {
+    // 在模块卸载/扩展关闭时，尽量结算当前会话，避免丢失时长
+    try { this.commitSessionTime(); } catch { /* ignore */ }
     Object.values(this.statusBarItems).forEach(item => item.dispose());
     this.disposables.forEach(d => { try { d.dispose(); } catch { /* ignore */ } });
   }

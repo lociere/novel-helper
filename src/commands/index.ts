@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { initWorkspace } from './initWorkspace';
 import { closeWorkspace } from './closeWorkspace';
 import { createItem, CreateItemType } from './createItems';
+import { deleteItem } from './deleteItem';
 import { getVSCodeConfig, isWorkspaceInitialized } from '../utils/config';
 import { isSupportedTextDocument } from '../utils/supportedDocuments';
 import { formatDocumentText } from '../formatter/formatService';
@@ -65,6 +66,10 @@ export const registerCommands = (
     ['novel-helper.createItem', (type: CreateItemType, parentPath?: string) => {
       if (!ensureInitialized()) { return; }
       return createItem(type, parentPath);
+    }],
+    ['novel-helper.deleteItem', async (arg?: unknown) => {
+      if (!ensureInitialized()) { return; }
+      return deleteItem(arg);
     }],
     ['novel-helper.formatDocument', async () => {
       if (!ensureInitialized()) { return; }
