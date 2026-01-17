@@ -85,5 +85,13 @@ export const registerTreeView = (): vscode.Disposable => {
   });
   disposables.push(onChange);
 
+  // 首次打开文本时刷新字数，避免需要“保存一次”才更新
+  const onOpen = vscode.workspace.onDidOpenTextDocument(doc => {
+    if (!treeView.visible) { return; }
+    if (!isSupportedTextDocument(doc)) { return; }
+    treeDataProvider.refreshFile(doc.uri);
+  });
+  disposables.push(onOpen);
+
   return vscode.Disposable.from(...disposables);
 };
