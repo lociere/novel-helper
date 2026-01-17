@@ -211,7 +211,19 @@ export const isWorkspaceInitialized = (): boolean => {
   if (!configIsValid) { return false; }
   const currentRoot = getWorkspaceRootFsPath();
   if (!currentRoot) { return false; }
-  return typeof cachedConfig.workspacePath === 'string' && cachedConfig.workspacePath === currentRoot;
+
+  // 说明：不要用 workspacePath 严格判定“是否初始化”。
+  // 工作区可能被移动/复制，旧路径会导致功能模块永远不注册（表现为配置项怎么改都不生效）。
+  // 这里以“存在且有效的 .novel-helper.json”为准，并顺手把 workspacePath 同步到当前根目录。
+  if (typeof cachedConfig.workspacePath !== 'string' || cachedConfig.workspacePath !== currentRoot) {
+    try {
+      writeConfig({ workspacePath: currentRoot });
+    } catch {
+      // ignore
+    }
+  }
+
+  return true;
 };
 
 /**

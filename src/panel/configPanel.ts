@@ -129,7 +129,14 @@ export const openConfigPanel = async (): Promise<void> => {
         },
         { label: '隐藏缩进参考线', description: `当前值: ${config.autoDisableIndentGuides ? '开启' : '关闭'}`, type: 'boolean', key: 'autoDisableIndentGuides' },
         { label: '字号大小', description: `当前值: ${config.fontSize}（会同步更新 editor.fontSize 全局设置）`, type: 'number', key: 'fontSize' },
-        { label: 'VS Code 行高（editor.lineHeight）', description: `当前值: ${config.editorLineHeight}（0 表示不写入工作区设置）`, type: 'number', key: 'editorLineHeight' },
+        { label: 'VS Code 行高（editor.lineHeight）', description: `当前值: ${config.editorLineHeight}（0 表示不写入工作区设置）`, type: 'number', key: 'editorLineHeight' }
+      ])
+    },
+    {
+      label: '自动化',
+      description: '自动行为（回车排版等）',
+      buildItems: () => ([
+        { label: '回车自动排版', description: `当前值: ${config.autoLayoutOnEnter ? '开启' : '关闭'}`, type: 'boolean', key: 'autoLayoutOnEnter' },
         {
           label: '自动保存',
           description: `子菜单：${config.autoSaveEnabled ? '开启' : '关闭'}`,
@@ -139,13 +146,6 @@ export const openConfigPanel = async (): Promise<void> => {
             { label: '自动保存延迟（ms）', description: `当前值: ${config.autoSaveDelayMs}（仅在开启时生效）`, type: 'number', key: 'autoSaveDelayMs' },
           ])
         }
-      ])
-    },
-    {
-      label: '自动化',
-      description: '自动行为（回车排版等）',
-      buildItems: () => ([
-        { label: '回车自动排版', description: `当前值: ${config.autoLayoutOnEnter ? '开启' : '关闭'}`, type: 'boolean', key: 'autoLayoutOnEnter' },
       ])
     },
     {
