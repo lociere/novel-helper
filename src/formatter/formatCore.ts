@@ -1,4 +1,4 @@
-import { shouldSkipFormatLine } from './rules';
+import { shouldSkipFormatLine } from './formattingUtils';
 type FormatConfig = {
   paragraphIndent: number;
   overallIndent: number;

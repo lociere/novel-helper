@@ -53,6 +53,12 @@ export interface NovelHelperConfig {
   editorWordWrapColumn: number;
   /** 是否使用全角空格（U+3000）作为缩进单位。 */
   useFullWidthIndent: boolean;
+
+  /** 是否开启自动保存（映射到 VS Code files.autoSave，工作区级别）。 */
+  autoSaveEnabled: boolean;
+
+  /** 自动保存延迟（毫秒），映射到 VS Code files.autoSaveDelay（工作区级别）。 */
+  autoSaveDelayMs: number;
   /** highlightItems 的值采用可序列化的范围表示，便于写入配置文件 */
   highlightItems: { [key: string]: HighlightItem };
   editStartTime: number;
@@ -75,6 +81,8 @@ export const defaultConfig: NovelHelperConfig = {
   autoLayoutOnEnter: true,
   editorWordWrapColumn: 0,
   useFullWidthIndent: false,
+  autoSaveEnabled: false,
+  autoSaveDelayMs: 1000,
   highlightItems: {},
   editStartTime: 0,
   totalEditTime: 0,

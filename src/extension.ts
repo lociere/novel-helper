@@ -53,6 +53,8 @@ export function activate(context: vscode.ExtensionContext): void {
         e.affectsConfiguration('novel-helper.autoDisableIndentGuides')
         || e.affectsConfiguration('novel-helper.editorWordWrapColumn')
         || e.affectsConfiguration('novel-helper.editorLineHeight')
+        || e.affectsConfiguration('novel-helper.autoSaveEnabled')
+        || e.affectsConfiguration('novel-helper.autoSaveDelayMs')
       ) {
         void syncAllEditorSettings();
       }

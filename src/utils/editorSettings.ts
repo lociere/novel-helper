@@ -76,6 +76,31 @@ export const syncEditorLineHeightSetting = async (): Promise<void> => {
 };
 
 /**
+ * 根据插件配置同步 VS Code 自动保存（files.autoSave）。
+ * - 开启：files.autoSave=afterDelay，并写入一个合理的延迟（默认 1000ms）
+ * - 关闭：files.autoSave=off，并移除工作区层面的 autoSaveDelay
+ */
+export const syncAutoSaveSetting = async (): Promise<void> => {
+  const cfg = getVSCodeConfig();
+  const filesCfg = vscode.workspace.getConfiguration('files');
+
+  try {
+    if (cfg.autoSaveEnabled) {
+      await filesCfg.update('autoSave', 'afterDelay', vscode.ConfigurationTarget.Workspace);
+      // VS Code 默认是 1000ms；支持通过插件配置调整
+      const delay = Number(cfg.autoSaveDelayMs);
+      const normalizedDelay = Number.isFinite(delay) && delay > 0 ? Math.floor(delay) : 1000;
+      await filesCfg.update('autoSaveDelay', normalizedDelay, vscode.ConfigurationTarget.Workspace);
+    } else {
+      await filesCfg.update('autoSave', 'off', vscode.ConfigurationTarget.Workspace);
+      await filesCfg.update('autoSaveDelay', undefined, vscode.ConfigurationTarget.Workspace);
+    }
+  } catch {
+    // ignore
+  }
+};
+
+/**
  * 同步 Novel Helper 相关的 VS Code 编辑器设置（工作区级别）。
  *
  * 职责边界：
@@ -88,4 +113,5 @@ export const syncAllEditorSettings = async (): Promise<void> => {
   await syncWordWrapSetting();
   await syncWrappingIndentSetting();
   await syncEditorLineHeightSetting();
+  await syncAutoSaveSetting();
 };

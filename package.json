@@ -196,6 +196,17 @@
           "default": false,
           "description": "是否使用全角空格（U+3000）作为缩进单位（中文排版更明显）。默认关闭（使用半角空格）。"
         },
+        "novel-helper.autoSaveEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否开启自动保存（工作区级别）。开启后会写入 VS Code 设置：files.autoSave=afterDelay（并设置 autoSaveDelay=1000ms）。"
+        },
+        "novel-helper.autoSaveDelayMs": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 200,
+          "description": "自动保存延迟（毫秒），仅在开启自动保存时生效。将写入 VS Code 工作区设置 files.autoSaveDelay。"
+        },
         "novel-helper.workspacePath": {
           "type": "string",
           "default": "",

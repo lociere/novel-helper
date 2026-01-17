@@ -41,7 +41,9 @@ export const getVSCodeConfig = (): NovelHelperConfig => {
     autoDisableIndentGuides: config.get('autoDisableIndentGuides', false),
     autoLayoutOnEnter: config.get('autoLayoutOnEnter', false),
     editorWordWrapColumn: config.get('editorWordWrapColumn', 0),
-    useFullWidthIndent: config.get('useFullWidthIndent', false)
+    useFullWidthIndent: config.get('useFullWidthIndent', false),
+    autoSaveEnabled: config.get('autoSaveEnabled', false),
+    autoSaveDelayMs: config.get('autoSaveDelayMs', 1000)
   };
 };
 

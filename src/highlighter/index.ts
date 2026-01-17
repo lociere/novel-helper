@@ -1,4 +1,3 @@
-import * as vscode from 'vscode';
 import { HighlightManager } from './manager';
 
 export { HighlightManager };

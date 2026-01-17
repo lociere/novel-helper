@@ -5,9 +5,10 @@ import { getVSCodeConfig, NovelHelperConfig, getEditorWrapSettings, updateNovelH
 interface ConfigItem {
   label: string;
   description: string;
-  type: 'number' | 'string' | 'boolean' | 'action';
+  type: 'number' | 'string' | 'boolean' | 'action' | 'submenu';
   key?: keyof NovelHelperConfig; // 可选：action 类目不需要 key
   action?: () => Promise<void> | void; // 仅 action 类型使用
+  buildItems?: () => ConfigItem[]; // submenu 类型使用
 }
 
 type CategoryItem = vscode.QuickPickItem & { buildItems: () => ConfigItem[] };
@@ -36,91 +37,34 @@ export const openConfigPanel = async (): Promise<void> => {
   const config = getVSCodeConfig();
   const editorWrap = getEditorWrapSettings();
 
-  // 一级：分类选择
-  const categories: CategoryItem[] = [
-    {
-      label: '排版与缩进',
-      description: '缩进、整体排版',
-      buildItems: () => ([
-        { label: '段首缩进空格数', description: `当前值: ${config.paragraphIndent}`, type: 'number', key: 'paragraphIndent' },
-        { label: '整体缩进空格数', description: `当前值: ${config.overallIndent}`, type: 'number', key: 'overallIndent' },
-        { label: '使用全角空格缩进', description: `当前值: ${config.useFullWidthIndent ? '开启' : '关闭'}`, type: 'boolean', key: 'useFullWidthIndent' },
-      ])
-    },
-    {
-      label: '段落识别',
-      description: '分段规则与兼容策略',
-      buildItems: () => ([
-        { label: '段落识别策略（空行分段规则）', description: `当前值: ${config.paragraphSplitMode}`, type: 'string', key: 'paragraphSplitMode' },
-        { label: '遇到段首缩进强制分段', description: `当前值: ${config.paragraphSplitOnIndentedLine ? '开启' : '关闭'} (默认开启)`, type: 'boolean', key: 'paragraphSplitOnIndentedLine' },
-      ])
-    },
-    {
-      label: '段间距',
-      description: '控制段与段之间空行数量',
-      buildItems: () => ([
-        { label: '段间距（段间空行数）', description: `当前值: ${config.lineSpacing}`, type: 'number', key: 'lineSpacing' },
-      ])
-    },
-    {
-      label: '换行与列宽',
-      description: '软换行列宽（wordWrapColumn）',
-      buildItems: () => ([
-        {
-          label: 'VS Code 自动换行列宽（wordWrapColumn）',
-          description: `当前值: ${config.editorWordWrapColumn}（VS Code 当前: ${editorWrap.wordWrapColumn}, wordWrap: ${editorWrap.wordWrap}）`,
-          type: 'number',
-          key: 'editorWordWrapColumn'
-        },
-      ])
-    },
-    {
-      label: '自动排版',
-      description: '回车自动段间距与段首缩进',
-      buildItems: () => ([
-        { label: '回车自动排版', description: `当前值: ${config.autoLayoutOnEnter ? '开启' : '关闭'}`, type: 'boolean', key: 'autoLayoutOnEnter' },
-      ])
-    },
-    {
-      label: '显示与高亮',
-      description: '状态栏/高亮/显示相关',
-      buildItems: () => ([
-        { label: '隐藏缩进参考线', description: `当前值: ${config.autoDisableIndentGuides ? '开启' : '关闭'}`, type: 'boolean', key: 'autoDisableIndentGuides' },
-        { label: '字号大小', description: `当前值: ${config.fontSize} (仅修改配置)`, type: 'number', key: 'fontSize' },
-        { label: 'VS Code 行高（editor.lineHeight）', description: `当前值: ${config.editorLineHeight}（0 表示不写入工作区设置）`, type: 'number', key: 'editorLineHeight' },
-        { label: '高亮颜色', description: `当前值: ${config.highlightColor}`, type: 'string', key: 'highlightColor' },
-      ])
-    }
-  ];
-
-  const categoryPick = vscode.window.createQuickPick<CategoryItem>();
-  categoryPick.items = categories;
-  categoryPick.title = 'Novel Helper 配置面板';
-  categoryPick.placeholder = '选择一个类别';
-
-  categoryPick.onDidAccept(() => {
-    const chosen = categoryPick.selectedItems[0];
-    if (!chosen) { categoryPick.hide(); return; }
-    categoryPick.hide();
-
-    const items = chosen.buildItems();
+  const openItemsMenu = async (title: string, items: ConfigItem[], onBack: () => Promise<void>): Promise<void> => {
     const quickPick = vscode.window.createQuickPick<ConfigItem>();
-    items.push({
-      label: '返回上一级',
-      description: '返回类别列表',
-      type: 'action',
-      action: async () => {
-        quickPick.hide();
-        await openConfigPanel();
+
+    quickPick.items = [
+      ...items,
+      {
+        label: '返回上一级',
+        description: '返回类别列表',
+        type: 'action',
+        action: async () => {
+          quickPick.hide();
+          await onBack();
+        }
       }
-    });
-    quickPick.items = items;
-    quickPick.title = `配置：${chosen.label}`;
+    ];
+    quickPick.title = title;
     quickPick.placeholder = '选择要修改的条目';
 
     quickPick.onDidAccept(async () => {
       const selected = quickPick.selectedItems[0];
       if (!selected) { return; }
+
+      if (selected.type === 'submenu' && selected.buildItems) {
+        const nextItems = selected.buildItems();
+        quickPick.hide();
+        await openItemsMenu(`${title} / ${selected.label}`, nextItems, async () => openItemsMenu(title, items, onBack));
+        return;
+      }
 
       if (selected.type === 'action' && selected.action) {
         await selected.action();
@@ -144,6 +88,86 @@ export const openConfigPanel = async (): Promise<void> => {
 
     quickPick.onDidHide(() => quickPick.dispose());
     quickPick.show();
+  };
+
+  // 一级：分类选择
+  const categories: CategoryItem[] = [
+    {
+      label: '排版',
+      description: '缩进、段间距、整体排版',
+      buildItems: () => ([
+        { label: '段首缩进空格数', description: `当前值: ${config.paragraphIndent}`, type: 'number', key: 'paragraphIndent' },
+        { label: '整体缩进空格数', description: `当前值: ${config.overallIndent}`, type: 'number', key: 'overallIndent' },
+        { label: '使用全角空格缩进', description: `当前值: ${config.useFullWidthIndent ? '开启' : '关闭'}`, type: 'boolean', key: 'useFullWidthIndent' },
+        { label: '段间距（段间空行数）', description: `当前值: ${config.lineSpacing}`, type: 'number', key: 'lineSpacing' },
+      ])
+    },
+    {
+      label: '段落识别',
+      description: '分段规则与兼容策略',
+      buildItems: () => ([
+        { label: '段落识别策略（空行分段规则）', description: `当前值: ${config.paragraphSplitMode}`, type: 'string', key: 'paragraphSplitMode' },
+        { label: '遇到段首缩进强制分段', description: `当前值: ${config.paragraphSplitOnIndentedLine ? '开启' : '关闭'} (默认开启)`, type: 'boolean', key: 'paragraphSplitOnIndentedLine' },
+      ])
+    },
+    {
+      label: '编辑器显示',
+      description: '换行、缩进参考线、字体、自动保存',
+      buildItems: () => ([
+        {
+          label: '换行与列宽',
+          description: '子菜单：软换行列宽等',
+          type: 'submenu',
+          buildItems: () => ([
+            {
+              label: 'VS Code 自动换行列宽（wordWrapColumn）',
+              description: `当前值: ${config.editorWordWrapColumn}（VS Code 当前: ${editorWrap.wordWrapColumn}, wordWrap: ${editorWrap.wordWrap}）`,
+              type: 'number',
+              key: 'editorWordWrapColumn'
+            }
+          ])
+        },
+        { label: '隐藏缩进参考线', description: `当前值: ${config.autoDisableIndentGuides ? '开启' : '关闭'}`, type: 'boolean', key: 'autoDisableIndentGuides' },
+        { label: '字号大小', description: `当前值: ${config.fontSize}（会同步更新 editor.fontSize 全局设置）`, type: 'number', key: 'fontSize' },
+        { label: 'VS Code 行高（editor.lineHeight）', description: `当前值: ${config.editorLineHeight}（0 表示不写入工作区设置）`, type: 'number', key: 'editorLineHeight' },
+        {
+          label: '自动保存',
+          description: `子菜单：${config.autoSaveEnabled ? '开启' : '关闭'}`,
+          type: 'submenu',
+          buildItems: () => ([
+            { label: '自动保存开关', description: `当前值: ${config.autoSaveEnabled ? '开启' : '关闭'}（映射到 VS Code files.autoSave）`, type: 'boolean', key: 'autoSaveEnabled' },
+            { label: '自动保存延迟（ms）', description: `当前值: ${config.autoSaveDelayMs}（仅在开启时生效）`, type: 'number', key: 'autoSaveDelayMs' },
+          ])
+        }
+      ])
+    },
+    {
+      label: '自动化',
+      description: '自动行为（回车排版等）',
+      buildItems: () => ([
+        { label: '回车自动排版', description: `当前值: ${config.autoLayoutOnEnter ? '开启' : '关闭'}`, type: 'boolean', key: 'autoLayoutOnEnter' },
+      ])
+    },
+    {
+      label: '高亮',
+      description: '文本高亮相关',
+      buildItems: () => ([
+        { label: '高亮颜色', description: `当前值: ${config.highlightColor}`, type: 'string', key: 'highlightColor' },
+      ])
+    }
+  ];
+
+  const categoryPick = vscode.window.createQuickPick<CategoryItem>();
+  categoryPick.items = categories;
+  categoryPick.title = 'Novel Helper 配置面板';
+  categoryPick.placeholder = '选择一个类别';
+
+  categoryPick.onDidAccept(() => {
+    const chosen = categoryPick.selectedItems[0];
+    if (!chosen) { categoryPick.hide(); return; }
+    categoryPick.hide();
+
+    void openItemsMenu(`配置：${chosen.label}`, chosen.buildItems(), openConfigPanel);
   });
 
   categoryPick.onDidHide(() => categoryPick.dispose());
@@ -206,6 +230,11 @@ const handleGeneralInput = async (selected: ConfigItem): Promise<void> => {
       }
       if (selected.type === 'number' && isNaN(Number(value))) {
         return '请输入数字';
+      }
+      if (selected.key === 'autoSaveDelayMs') {
+        const n = Number(value);
+        if (!Number.isFinite(n) || n <= 0) { return '请输入大于 0 的毫秒数'; }
+        if (n < 200) { return '延迟过小（建议 >= 200ms）'; }
       }
       return null;
     }

@@ -12,6 +12,8 @@ export class StatusBarManager {
   private statusBarItems!: StatusBarItems;
   private currentWordCount = 0;
   private editStartTime = 0;
+  private sessionStartWordCount = 0;
+  private sessionEditTime = 0;
   private editingDocFsPath: string | undefined;
 
   private disposables: vscode.Disposable[] = [];
@@ -69,12 +71,17 @@ export class StatusBarManager {
       this.handleDocumentClose(doc);
     });
 
+    // 4. 窗口失焦/获得焦点：暂停/恢复计时
+    const windowFocusDisposable = vscode.window.onDidChangeWindowState(state => {
+      this.handleWindowFocusChange(state.focused);
+    });
+
     // 统一管理资源
-    const disposables = [activeEditorDisposable, changeDocDisposable, closeDocDisposable];
+    const disposables = [activeEditorDisposable, changeDocDisposable, closeDocDisposable, windowFocusDisposable];
     this.context.subscriptions.push(...disposables);
     this.disposables.push(...disposables);
 
-    // 4. 插件启动时的初始化检查
+    // 5. 插件启动时的初始化检查
     const activeEditor = vscode.window.activeTextEditor;
     if (activeEditor) {
       this.handleActiveEditorChange(activeEditor);
@@ -90,6 +97,7 @@ export class StatusBarManager {
     const cfg = readConfig();
     // 只累计“已开始的有效会话”，并写回总时长。
     writeConfig({ totalEditTime: cfg.totalEditTime + duration });
+    this.sessionEditTime += duration;
   }
 
   /**
@@ -108,16 +116,7 @@ export class StatusBarManager {
       return;
     }
 
-    this.editStartTime = Date.now();
-    this.editingDocFsPath = editor.document.uri.fsPath;
-
-    const wordCount = countWords(editor.document.getText());
-
-    // 更新会话开始状态，用于计算本次速度
-    writeConfig({
-      editStartTime: this.editStartTime,
-      lastWordCount: wordCount
-    });
+    this.startSessionForEditor(editor);
 
     this.updateStatusBar(editor.document);
   }
@@ -147,6 +146,31 @@ export class StatusBarManager {
     this.editingDocFsPath = undefined;
   }
 
+  /** 窗口焦点变化时暂停/恢复计时 */
+  private handleWindowFocusChange(focused: boolean): void {
+    if (focused) {
+      const editor = vscode.window.activeTextEditor;
+      if (editor && isSupportedTextDocument(editor.document)) {
+        this.startSessionForEditor(editor);
+      }
+      return;
+    }
+
+    // 失焦：结算当前会话并停止计时
+    this.commitSessionTime();
+    this.editStartTime = 0;
+  }
+
+  /** 启动/重置当前编辑会话 */
+  private startSessionForEditor(editor: vscode.TextEditor): void {
+    this.editStartTime = Date.now();
+    this.editingDocFsPath = editor.document.uri.fsPath;
+
+    const wordCount = countWords(editor.document.getText());
+    // 记录会话基准字数，用于计算本次速度
+    this.sessionStartWordCount = wordCount;
+  }
+
   /** 更新状态栏 */
   public updateStatusBar(document: vscode.TextDocument): void {
     if (!isSupportedTextDocument(document)) { return; }
@@ -157,7 +181,7 @@ export class StatusBarManager {
     // 计算码字速度
     const currentTime = Date.now();
     const duration = this.editStartTime > 0 ? (currentTime - this.editStartTime) : 0; // 本次会话时长
-    const wordChange = this.currentWordCount - config.lastWordCount; // 本次字数变化
+    const wordChange = this.currentWordCount - this.sessionStartWordCount; // 本次字数变化（基于会话开始）
     const speed = calculateWritingSpeed(wordChange, duration);
 
     this.updateStatusBarItem(this.statusBarItems.wordCount, `字数: ${this.currentWordCount}`);
@@ -167,10 +191,10 @@ export class StatusBarManager {
     ].join(' | ');
     this.updateStatusBarItem(this.statusBarItems.format, formatText);
     this.updateStatusBarItem(this.statusBarItems.speed, `速度: ${speed} 字/分钟`);
-    this.updateStatusBarItem(this.statusBarItems.time, `时长: ${formatTime(config.totalEditTime + duration)}`);
+    const sessionTime = this.sessionEditTime + duration;
+    const totalTime = config.totalEditTime + duration;
+    this.updateStatusBarItem(this.statusBarItems.time, `本次: ${formatTime(sessionTime)} | 总计: ${formatTime(totalTime)}`);
     
-    // 保存最新字数状态，供下次计算差值
-    writeConfig({ lastWordCount: this.currentWordCount });
   }
 
   /**
