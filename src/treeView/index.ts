@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { NovelTreeDataProvider } from './novelTreeDataProvider';
-import { getWorkspaceRoot } from '../utils/helpers';
+import { getWorkspaceRoot } from '../utils/workspace';
 import { isWorkspaceInitialized } from '../utils/config';
 import { isSupportedTextDocument } from '../utils/supportedDocuments';
 

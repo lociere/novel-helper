@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { getWorkspaceRoot } from '../utils/helpers';
+import { getWorkspaceRoot } from '../utils/workspace';
 import { updateNovelHelperSetting } from '../utils/config';
 import { ensureDir, writeTextFileIfMissing } from '../utils/workspaceFs';
 

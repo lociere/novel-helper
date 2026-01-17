@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getVSCodeConfig, readConfig, writeConfig } from '../utils/config';
-import { countWords, formatTime, calculateWritingSpeed } from '../utils/helpers';
+import { countWords } from '../utils/text';
+import { formatTime, calculateWritingSpeed } from '../utils/time';
 import { isSupportedTextDocument } from '../utils/supportedDocuments';
 
 type StatusBarKey = 'wordCount' | 'format' | 'speed' | 'time';

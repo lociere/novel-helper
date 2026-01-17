@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { NovelTreeItem } from './treeItem';
-import { getWorkspaceRoot, countWords } from '../utils/helpers';
+import { getWorkspaceRoot } from '../utils/workspace';
+import { countWords } from '../utils/text';
 import { CONFIG_FILE_NAME, isWorkspaceInitialized } from '../utils/config';
 import { readTextFile } from '../utils/workspaceFs';
 

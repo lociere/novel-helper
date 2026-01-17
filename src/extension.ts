@@ -6,7 +6,7 @@ import { registerPanel } from './panel';
 import { registerHighlighter } from './highlighter';
 import { registerFormatter } from './formatter';
 import { registerEditorBehavior } from './editorBehavior';
-import { hideConfigFileInExplorer, isWorkspaceInitialized } from './utils/config';
+import { ensureConfigLoaded, flushConfigWrites, hideConfigFileInExplorer, isWorkspaceInitialized, registerConfigFileWatcher } from './utils/config';
 import { syncAllEditorSettings } from './utils/editorSettings';
 import { addFeatureDisposable, disposeAllFeatures } from './utils/featureRegistry';
 
@@ -17,8 +17,8 @@ import { addFeatureDisposable, disposeAllFeatures } from './utils/featureRegistr
 export function activate(context: vscode.ExtensionContext): void {
   console.log('novel-helper 已激活！');
 
-  const initialized = isWorkspaceInitialized();
-  void vscode.commands.executeCommand('setContext', 'novelHelper.initialized', initialized);
+  // 先加载配置文件：避免后续读默认值覆盖真实配置。
+  // 激活函数保持同步签名，但内部用 void + then，避免阻塞 VS Code 激活。
   let featuresRegistered = false;
 
   const registerModule = (name: string, registerFn: (ctx: vscode.ExtensionContext) => vscode.Disposable | void) => {
@@ -73,11 +73,24 @@ export function activate(context: vscode.ExtensionContext): void {
     onClosed: unregisterFeatures
   }));
 
-  if (initialized) {
-    registerFeatures();
-  } else {
-    console.log('novel-helper：检测到工作区未初始化，仅注册命令模块。');
-  }
+  const refreshInitContext = () => {
+    const initialized = isWorkspaceInitialized();
+    void vscode.commands.executeCommand('setContext', 'novelHelper.initialized', initialized);
+    if (initialized) {
+      registerFeatures();
+    }
+  };
+
+  // 监听配置文件变化：确保外部编辑/删除后 Context 与功能模块状态一致。
+  addFeatureDisposable(registerConfigFileWatcher(refreshInitContext));
+
+  // 初始化判断依赖配置加载：等待 ensureConfigLoaded 后再决定是否注册功能模块。
+  void ensureConfigLoaded().then(() => {
+    refreshInitContext();
+    if (!isWorkspaceInitialized()) {
+      console.log('novel-helper：检测到工作区未初始化，仅注册命令模块。');
+    }
+  });
 }
 
 /**
@@ -87,4 +100,6 @@ export function deactivate(): void {
   console.log('novel-helper 已停用！');
   // 确保停用时清理功能模块
   try { disposeAllFeatures(); } catch { /* ignore */ }
+  // 尽量把防抖中的配置写入落盘
+  void flushConfigWrites();
 }

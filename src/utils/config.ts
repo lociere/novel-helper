@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
+import { pathExists, readTextFile, writeTextFile } from './workspaceFs';
 
 export interface Position {
   line: number;
@@ -142,15 +141,138 @@ const sanitizeConfig = (raw: unknown): { config: NovelHelperConfig; changed: boo
 /** 配置文件名称 */
 export const CONFIG_FILE_NAME = '.novel-helper.json';
 
+let cachedConfig: NovelHelperConfig = { ...defaultConfig };
+let hasLoaded = false;
+let configFileExists = false;
+let configIsValid = true;
+let loadingPromise: Promise<void> | undefined;
+
+let pendingWriteConfig: NovelHelperConfig | undefined;
+let writeTimer: NodeJS.Timeout | undefined;
+let inFlightWrite: Promise<void> | undefined;
+
+const getWorkspaceFolderUri = (): vscode.Uri | undefined => vscode.workspace.workspaceFolders?.[0]?.uri;
+
+const getWorkspaceRootFsPath = (): string | undefined => getWorkspaceFolderUri()?.fsPath;
+
+const getConfigFileUri = (): vscode.Uri | undefined => {
+  const root = getWorkspaceFolderUri();
+  if (!root) { return undefined; }
+  return vscode.Uri.joinPath(root, CONFIG_FILE_NAME);
+};
+
+const initDefaultConfigForCurrentWorkspace = (): NovelHelperConfig => {
+  const root = getWorkspaceRootFsPath();
+  return { ...defaultConfig, workspacePath: root || '' };
+};
+
+const persistConfigToDisk = async (cfg: NovelHelperConfig): Promise<void> => {
+  const uri = getConfigFileUri();
+  if (!uri) { return; }
+  await writeTextFile(uri, JSON.stringify(cfg, null, 2));
+  configFileExists = true;
+  configIsValid = true;
+};
+
+const scheduleConfigWrite = (cfg: NovelHelperConfig): void => {
+  pendingWriteConfig = cfg;
+
+  if (writeTimer) { return; }
+
+  writeTimer = setTimeout(() => {
+    writeTimer = undefined;
+
+    const next = pendingWriteConfig;
+    pendingWriteConfig = undefined;
+    if (!next) { return; }
+
+    inFlightWrite = persistConfigToDisk(next).catch(err => {
+      console.error('[Novel Helper] 写入配置文件失败:', err);
+      vscode.window.showErrorMessage('写入配置文件失败');
+    }).finally(() => {
+      inFlightWrite = undefined;
+    });
+  }, 200);
+};
+
+export const flushConfigWrites = async (): Promise<void> => {
+  if (writeTimer) {
+    clearTimeout(writeTimer);
+    writeTimer = undefined;
+
+    const next = pendingWriteConfig;
+    pendingWriteConfig = undefined;
+    if (next) {
+      inFlightWrite = persistConfigToDisk(next).catch(err => {
+        console.error('[Novel Helper] 写入配置文件失败:', err);
+      }).finally(() => {
+        inFlightWrite = undefined;
+      });
+    }
+  }
+
+  if (inFlightWrite) {
+    await inFlightWrite;
+  }
+};
+
 /**
  * 获取工作区配置文件路径
  * @returns 配置文件路径
  */
 export const getConfigFilePath = (): string => {
-  if (!vscode.workspace.workspaceFolders) {
-    return '';
-  }
-  return path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, CONFIG_FILE_NAME);
+  return getConfigFileUri()?.fsPath || '';
+};
+
+export const ensureConfigLoaded = async (): Promise<void> => {
+  if (hasLoaded) { return; }
+  if (loadingPromise) { return loadingPromise; }
+
+  loadingPromise = (async () => {
+    const uri = getConfigFileUri();
+    if (!uri) {
+      cachedConfig = { ...defaultConfig };
+      configFileExists = false;
+      configIsValid = true;
+      hasLoaded = true;
+      return;
+    }
+
+    const exists = await pathExists(uri);
+    if (!exists) {
+      cachedConfig = initDefaultConfigForCurrentWorkspace();
+      configFileExists = false;
+      configIsValid = true;
+      hasLoaded = true;
+      return;
+    }
+
+    try {
+      const content = await readTextFile(uri);
+      const parsed = JSON.parse(content);
+      const { config: sanitized, changed } = sanitizeConfig(parsed);
+      cachedConfig = sanitized;
+      configFileExists = true;
+      configIsValid = true;
+      hasLoaded = true;
+
+      if (changed) {
+        await persistConfigToDisk(sanitized);
+      }
+    } catch (err) {
+      console.error('[Novel Helper] 读取配置文件失败:', err);
+      vscode.window.showErrorMessage('读取配置文件失败，使用默认配置');
+      cachedConfig = initDefaultConfigForCurrentWorkspace();
+      configFileExists = true;
+      // 与旧行为保持一致：配置文件损坏时视为“未初始化”。
+      configIsValid = false;
+      hasLoaded = true;
+    }
+  })().finally(() => {
+    loadingPromise = undefined;
+  });
+
+  return loadingPromise;
 };
 
 /**
@@ -158,22 +280,12 @@ export const getConfigFilePath = (): string => {
  * @returns 配置对象
  */
 export const readConfig = (): NovelHelperConfig => {
-  const configPath = getConfigFilePath();
-  if (!fs.existsSync(configPath)) {
-    return { ...defaultConfig, workspacePath: vscode.workspace.workspaceFolders?.[0].uri.fsPath || '' };
+  if (!hasLoaded) {
+    void ensureConfigLoaded();
+    // 未加载完成时，返回“当前工作区默认配置”作为同步兜底。
+    return initDefaultConfigForCurrentWorkspace();
   }
-  try {
-    const content = fs.readFileSync(configPath, 'utf-8');
-    const parsed = JSON.parse(content);
-    const { config: sanitized, changed } = sanitizeConfig(parsed);
-    if (changed) {
-      fs.writeFileSync(configPath, JSON.stringify(sanitized, null, 2), 'utf-8');
-    }
-    return sanitized;
-  } catch {
-    vscode.window.showErrorMessage('读取配置文件失败，使用默认配置');
-    return defaultConfig;
-  }
+  return cachedConfig;
 };
 
 /**
@@ -181,18 +293,21 @@ export const readConfig = (): NovelHelperConfig => {
  * @param config 配置对象
  */
 export const writeConfig = (config: Partial<NovelHelperConfig>): void => {
-  const configPath = getConfigFilePath();
-  if (!configPath) {
+  // 避免在配置尚未加载时，用默认值覆盖真实配置。
+  if (!hasLoaded) {
+    void ensureConfigLoaded().then(() => writeConfig(config));
+    return;
+  }
+
+  if (!getConfigFileUri()) {
     vscode.window.showErrorMessage('未找到工作区');
     return;
   }
+
   const currentConfig = readConfig();
   const { config: newConfig } = sanitizeConfig({ ...currentConfig, ...config });
-  try {
-    fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), 'utf-8');
-  } catch {
-    vscode.window.showErrorMessage('写入配置文件失败');
-  }
+  cachedConfig = newConfig;
+  scheduleConfigWrite(newConfig);
 };
 
 /**
@@ -213,6 +328,8 @@ export async function updateNovelHelperSetting(
   value: NovelHelperConfig[keyof NovelHelperConfig],
   target: vscode.ConfigurationTarget = vscode.ConfigurationTarget.Workspace
 ): Promise<void> {
+  // 确保文件配置已加载，避免“读到默认值后覆盖真实值”。
+  await ensureConfigLoaded();
   writeConfig({ [key]: value } as Partial<NovelHelperConfig>);
   await vscode.workspace.getConfiguration('novel-helper').update(key as string, value, target);
 }
@@ -324,11 +441,12 @@ export const hideConfigFileInExplorer = (): void => {
 
 /** 删除工作区配置文件（.novel-helper.json），若不存在则跳过 */
 export const deleteConfigFile = async (): Promise<void> => {
-  const configPath = getConfigFilePath();
-  if (!configPath) { return; }
+  const uri = getConfigFileUri();
+  if (!uri) { return; }
   try {
-    const uri = vscode.Uri.file(configPath);
     await vscode.workspace.fs.delete(uri, { recursive: false, useTrash: true });
+    configFileExists = false;
+    configIsValid = true;
   } catch {
     // ignore
   }
@@ -350,17 +468,62 @@ export const clearNovelHelperWorkspaceSettings = async (target: vscode.Configura
 
 /** 判断当前工作区是否已通过 Novel Helper 初始化（存在配置文件） */
 export const isWorkspaceInitialized = (): boolean => {
-  const configPath = getConfigFilePath();
-  if (!configPath || !fs.existsSync(configPath)) { return false; }
-
-  const currentRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!currentRoot) { return false; }
-
-  try {
-    const content = fs.readFileSync(configPath, 'utf-8');
-    const parsed = JSON.parse(content) as Partial<NovelHelperConfig>;
-    return typeof parsed.workspacePath === 'string' && parsed.workspacePath === currentRoot;
-  } catch {
+  if (!hasLoaded) {
+    void ensureConfigLoaded();
     return false;
   }
+
+  if (!configFileExists) { return false; }
+  if (!configIsValid) { return false; }
+  const currentRoot = getWorkspaceRootFsPath();
+  if (!currentRoot) { return false; }
+  return typeof cachedConfig.workspacePath === 'string' && cachedConfig.workspacePath === currentRoot;
+};
+
+export const invalidateConfigCache = (): void => {
+  hasLoaded = false;
+  loadingPromise = undefined;
+  cachedConfig = { ...defaultConfig };
+  configFileExists = false;
+  configIsValid = true;
+
+  pendingWriteConfig = undefined;
+  if (writeTimer) {
+    clearTimeout(writeTimer);
+    writeTimer = undefined;
+  }
+  inFlightWrite = undefined;
+};
+
+/**
+ * 监听配置文件的外部变更（例如用户手动编辑 .novel-helper.json）。
+ * 建议在激活后注册一次。
+ */
+export const registerConfigFileWatcher = (onChanged?: () => void): vscode.Disposable => {
+  const folder = getWorkspaceFolderUri();
+  if (!folder) {
+    return new vscode.Disposable(() => { /* noop */ });
+  }
+
+  const pattern = new vscode.RelativePattern(folder, CONFIG_FILE_NAME);
+  const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+  const reload = async () => {
+    invalidateConfigCache();
+    await ensureConfigLoaded();
+    onChanged?.();
+  };
+
+  const d1 = watcher.onDidChange(() => { void reload(); });
+  const d2 = watcher.onDidCreate(() => { void reload(); });
+  const d3 = watcher.onDidDelete(() => {
+    invalidateConfigCache();
+    onChanged?.();
+  });
+
+  const d4 = vscode.workspace.onDidChangeWorkspaceFolders(() => {
+    void reload();
+  });
+
+  return vscode.Disposable.from(watcher, d1, d2, d3, d4);
 };
